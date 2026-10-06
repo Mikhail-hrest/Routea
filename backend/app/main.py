@@ -7,5 +7,5 @@ app = fa(
     version = "1.0"
 )
 
-async def root():
-    return {"mesg": "Routea backend is running"}
+app.include_router(api_router,
+                   prefix="/api/v1")
