@@ -1,5 +1,6 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import SecretStr
 
 # parents[] = {core, app, backend, Routea} => Routea = parents[3]
 BASE_DIR = Path(__file__).resolve().parents[3]
@@ -12,6 +13,8 @@ class Settings(BaseSettings):
     db_name: str
     db_user: str
     db_password: str
+
+    password_pepper: SecretStr
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE
