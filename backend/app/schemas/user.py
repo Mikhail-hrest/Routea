@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 # и поля в классе - это все что разрешено вернуть клиенту
 class UserResponse(BaseModel):
     id: UUID
+    name: str
     email: str
     role: str
     is_blocked: bool

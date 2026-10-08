@@ -148,10 +148,12 @@ DECLARE
     v_user_id UUID;
 BEGIN
     INSERT INTO users (
+        name, 
         email,
         password_hash
     )
     VALUES (
+        'user_for_test'
         'dbtest@routea.test',
         'TEST_HASH_NOT_REAL_PASSWORD'
     )

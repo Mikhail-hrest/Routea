@@ -15,6 +15,10 @@ class User(Base):
         , primary_key=True
         , server_default=text("gen_random_uuid()")
     )
+    name: Mapped[str] = mapped_column(
+        String(100)
+        , nullable=False
+    )
     email: Mapped[str] = mapped_column(
         String(254)
         , nullable=False
