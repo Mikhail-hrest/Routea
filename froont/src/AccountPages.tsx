@@ -76,44 +76,33 @@ export function AuthPage({ initialMode, onAuthenticated, onModeChange }: AuthPag
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-showcase">
-        <div className="auth-brand"><span><Compass /></span>routea</div>
-        <div className="auth-showcase-copy">
-          <p className="eyebrow">Путешествие начинается здесь</p>
-          <h1>Планируйте легко.<br />Запоминайте навсегда.</h1>
-          <p>Маршруты, бронирования и бюджет — всё необходимое для поездки в одном месте.</p>
-          <div className="auth-feature-list">
-            <div><span><MapPin /></span><div><strong>Собирайте маршрут</strong><small>Распределяйте любимые места по дням</small></div></div>
-            <div><span><WalletCards /></span><div><strong>Контролируйте бюджет</strong><small>Все расходы видны заранее</small></div></div>
-            <div><span><ShieldCheck /></span><div><strong>Ваши данные защищены</strong><small>Доступ только к вашим поездкам</small></div></div>
+    <main className="auth-flat-page">
+      <section className="auth-flat-shell">
+        <header className="auth-flat-header">
+          <div className="auth-flat-brand">
+            <span>ROUTEA</span>
+            <svg className="auth-brand-wave" viewBox="0 0 82 12" aria-hidden="true">
+              <path d="M1 6C8 0 14 12 21 6S34 0 41 6 54 12 61 6 74 0 81 6" />
+            </svg>
           </div>
-        </div>
-        <div className="auth-landscape"><i /><i /><i /><div className="auth-route"><b /><b /><b /></div></div>
-      </section>
+          <button type="button" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Создать аккаунт' : 'Уже есть аккаунт? Войти'}</button>
+        </header>
 
-      <section className="auth-form-side">
-        <div className="auth-form-card">
-          <div className="auth-mobile-brand"><Compass />routea</div>
-          <p className="eyebrow coral-text">{mode === 'login' ? 'С возвращением' : 'Новое путешествие'}</p>
-          <h2>{mode === 'login' ? 'Войти в Routea' : 'Создать аккаунт'}</h2>
-          <p className="auth-subtitle">{mode === 'login' ? 'Продолжите планирование ваших поездок.' : 'Зарегистрируйтесь, чтобы сохранить первую поездку.'}</p>
+        <div className="auth-flat-content">
+          <p className="auth-flat-kicker">ROUTEA / ЛИЧНЫЙ КАБИНЕТ</p>
+          <h1>{mode === 'login' ? 'ВХОД' : 'РЕГИСТРАЦИЯ'}</h1>
+          <p className="auth-flat-description">{mode === 'login' ? 'Введите данные своего аккаунта.' : 'Создайте аккаунт для сохранения поездок.'}</p>
 
-          <div className="auth-switch">
-            <button className={mode === 'login' ? 'active' : ''} onClick={() => changeMode('login')}>Вход</button>
-            <button className={mode === 'register' ? 'active' : ''} onClick={() => changeMode('register')}>Регистрация</button>
-          </div>
-
-          <form onSubmit={submit} className="auth-form" noValidate>
-            {mode === 'register' && <label><span>Имя</span><div><UserRound /><input autoFocus value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="Анна Ковалёва" required minLength={2} /></div></label>}
-            <label><span>Email</span><div><Mail /><input autoFocus={mode === 'login'} value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="name@example.ru" required /></div></label>
-            <label><span>Пароль</span><div><LockKeyhole /><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Не менее 8 символов" required minLength={8} /><button type="button" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff /> : <Eye />}</button></div>{mode === 'register' && <small>Заглавная и строчная буквы, минимум одна цифра</small>}</label>
-            {mode === 'register' && <label><span>Повторите пароль</span><div><KeyRound /><input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Введите пароль ещё раз" required /></div></label>}
+          <form onSubmit={submit} className="auth-flat-form" noValidate>
+            {mode === 'register' && <label className="auth-line-field"><span>ВАШЕ ИМЯ <b>*</b></span><div><input autoFocus value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="Анна Ковалёва" required minLength={2} /></div></label>}
+            <label className="auth-line-field"><span>EMAIL <b>*</b></span><div><input autoFocus={mode === 'login'} value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="name@example.ru" required /></div></label>
+            <label className="auth-line-field"><span>ПАРОЛЬ <b>*</b></span><div><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Не менее 8 символов" required minLength={8} /><button type="button" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff /> : <Eye />}</button></div></label>
+            {mode === 'register' && <label className="auth-line-field"><span>ПОВТОРИТЕ ПАРОЛЬ <b>*</b></span><div><input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Введите пароль ещё раз" required /></div></label>}
+            {mode === 'register' && <p className="auth-password-note">Пароль: минимум 8 символов, заглавная и строчная буквы, цифра.</p>}
             {error && <div className="form-message error" role="alert">{error}</div>}
             {success && <div className="form-message success" role="status"><Check />{success}</div>}
-            <button className="auth-submit" disabled={submitting}>{submitting ? 'Подождите…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}<ArrowRight /></button>
+            <button className="auth-flat-submit" disabled={submitting}><span>{submitting ? 'ПОДОЖДИТЕ…' : mode === 'login' ? 'ВОЙТИ' : 'СОЗДАТЬ АККАУНТ'}</span><ArrowRight /></button>
           </form>
-          <p className="auth-legal">Продолжая, вы соглашаетесь с условиями использования и политикой конфиденциальности.</p>
         </div>
       </section>
     </main>
@@ -176,4 +165,3 @@ function formatTripDates(start: string, end: string) {
   const formatter = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' })
   return `${formatter.format(new Date(`${start}T12:00:00`))} — ${formatter.format(new Date(`${end}T12:00:00`))}`
 }
-

@@ -21,3 +21,5 @@ venv/
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+froont/vite.config.js
+froont/vite.config.d.ts
