@@ -16,6 +16,7 @@ UserName = Annotated[
         , max_length=100
     )
 ]
+
 class RegisterRequest(BaseModel):
     name: UserName
     email: EmailStr
@@ -43,3 +44,14 @@ class RegisterRequest(BaseModel):
                 "Пароль должен содержать хотя бы одну цифру"
             )
         return value
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: SecretStr
+    model_config = ConfigDict(extra="forbid") 
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str="Bearer"
+    expires_in: int
+

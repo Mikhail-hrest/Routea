@@ -16,6 +16,13 @@ class Settings(BaseSettings):
 
     password_pepper: SecretStr
 
+    jwt_secret: SecretStr
+    jwt_algorithm: str="HS256"
+    access_token_ttl_min: int = 15
+    refresh_token_ttl_days: int = 30
+    jwt_issuer: str = "routea"
+    jwt_audience: str = "routea-client"
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE
         , env_file_encoding="utf-8"
