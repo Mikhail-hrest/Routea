@@ -1,9 +1,33 @@
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api/v1'
+
+// это то, какие поля приходят с API. поля немного разные но это норм, пусть будет так
+type BackendUser = {
+  id: string
+  name: string
+  email: string
+  created_at: string
+}
+
+type BackendTokenResponse = {
+  access_token: string
+  token_type: string
+  expires_in: number
+}
+
+type BackendError = {
+  detail?: string | {msg?:string}[]
+}
+
+
+
 export type User = {
   id: string
   name: string
   email: string
   createdAt: string
 }
+
+
 
 type StoredUser = User & { passwordHash: string }
 
@@ -99,57 +123,225 @@ function requireUser(): StoredUser {
   return user
 }
 
-export const frontendApi = {
-  async register(payload: { name: string; email: string; password: string }): Promise<{ user: User; accessToken: string }> {
-    await delay()
-    const name = payload.name.trim()
-    const email = payload.email.trim().toLowerCase()
-    if (name.length < 2) throw new ApiError(422, 'Имя должно содержать не менее 2 символов.')
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError(422, 'Введите корректный email.')
-    if (payload.password.length < 8 || !/[A-ZА-Я]/.test(payload.password) || !/[a-zа-я]/.test(payload.password) || !/\d/.test(payload.password)) {
-      throw new ApiError(422, 'Пароль должен содержать минимум 8 символов, заглавную и строчную буквы и цифру.')
-    }
-    const users = readList<StoredUser>(KEYS.users)
-    if (users.some((user) => user.email === email)) throw new ApiError(409, 'Пользователь с таким email уже зарегистрирован.')
-    const user: StoredUser = {
-      id: crypto.randomUUID(),
-      name,
-      email,
-      passwordHash: await hashPassword(payload.password),
-      createdAt: new Date().toISOString(),
-    }
-    users.push(user)
-    writeList(KEYS.users, users)
-    const token = createDemoToken(user)
-    localStorage.setItem(KEYS.token, token)
-    localStorage.setItem(KEYS.currentUserId, user.id)
-    return { user: publicUser(user), accessToken: token }
-  },
 
-  async login(payload: { email: string; password: string }): Promise<{ user: User; accessToken: string }> {
-    await delay()
-    const email = payload.email.trim().toLowerCase()
-    const passwordHash = await hashPassword(payload.password)
-    const user = readList<StoredUser>(KEYS.users).find((item) => item.email === email)
-    if (!user || user.passwordHash !== passwordHash) throw new ApiError(401, 'Неверный email или пароль.')
-    const token = createDemoToken(user)
-    localStorage.setItem(KEYS.token, token)
-    localStorage.setItem(KEYS.currentUserId, user.id)
-    return { user: publicUser(user), accessToken: token }
-  },
-
-  logout() {
+async function refreshAccessToken(): Promise<string> {
+  const response = await fetch(`${API_URL}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!response.ok)
+  {
     localStorage.removeItem(KEYS.token)
     localStorage.removeItem(KEYS.currentUserId)
+
+    throw new ApiError(response.status,'Сессия завершилась. Войдите снова.')
+  }
+
+  const data = await response.json() as BackendTokenResponse
+  localStorage.setItem(KEYS.token, data.access_token)
+  return data.access_token
+}
+
+async function authFetch(
+  url: string,
+  options: RequestInit = {}): Promise<Response> {
+    let token = localStorage.getItem(KEYS.token)
+    if (!token)
+    {
+      throw new ApiError(401, 'Вы не авторизованы.')
+    }
+
+  const makeRequest = (accessToken: string) => {
+      const headers = new Headers(options.headers)
+      headers.set('Aithorization', `Bearer ${accessToken}`)
+      return fetch(url, {...options, headers})
+  }
+  let response = await makeRequest(token)
+  if (response.status !== 401)
+  {
+    return response
+  }
+  token = await refreshAccessToken()
+  response = await makeRequest(token)
+  return response
+}
+
+export const frontendApi = {
+  //todo: CHANGED
+  async register(
+    payload: { name: string; email: string; password: string }
+  ): Promise<User> {
+    const name = payload.name.trim()
+    const email = payload.email.trim().toLowerCase()
+    const password = payload.password
+
+    if (name.length < 2)
+    {
+      throw new ApiError(422, 'Имя должно быть не менее 2 символов.')
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      {
+        throw new ApiError(422, 'Введите корректный email.')
+      }
+    if (password.length < 8 ||
+       !/[A-ZА-Я]/.test(password) ||
+        !/[a-zа-я]/.test(password) ||
+         !/\d/.test(password)) 
+    {
+      throw new ApiError(422, 
+        'Пароль должен содержать минимум 8 символов, заглавную и строчную буквы и цифру.')
+    }
+
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type' : 'application/json'
+      },
+      body: JSON.stringify({
+        name, email, password
+      })
+    })
+    const data = await response.json() as BackendUser | BackendError
+
+    if (!response.ok)
+    {
+      const errorData = data as BackendError
+      let message = 'Не удалось зарегистрироваться.'
+
+      if (typeof errorData.detail === 'string')
+      {
+        message = errorData.detail
+      } else if (Array.isArray(errorData.detail))
+      {
+        message = errorData.detail
+                  .map((item) => item.msg)
+                  .filter(Boolean)
+                  .join(' ')
+      }
+      throw new ApiError(response.status, message)
+    }
+
+    const user = data as BackendUser
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.created_at
+    }
+  },
+
+  //todo: CHANGED
+async login(payload: {email: string; password: string}): Promise<{ user: User; accessToken: string }> {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-type' : 'application/json'
+    },
+    body: JSON.stringify({
+      email: payload.email.trim().toLowerCase(),
+      password: payload.password
+    })
+  })
+  const data = await response.json() as BackendTokenResponse | BackendError
+
+  if (!response.ok)
+  {
+    const errorData = data as BackendError
+    let message = 'Неверный email или пароль.'
+    if (typeof errorData.detail == 'string')
+    {
+        message = errorData.detail
+    } 
+    else if (Array.isArray(errorData.detail))
+    {
+        message = errorData.detail
+          .map((item)=> item.msg)
+          .filter(Boolean)
+          .join(' ')
+    }
+    throw new ApiError(response.status, message)
+  }
+  const authData = data as BackendTokenResponse
+  const accessToken = authData.access_token
+
+  localStorage.setItem(KEYS.token, accessToken)
+  const profileResponse = await fetch(`${API_URL}/users/me`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  })
+
+  const profileData = await profileResponse.json() as BackendUser | BackendError
+
+  if (!profileResponse.ok)
+  {
+    localStorage.removeItem(KEYS.token)
+    throw new ApiError(profileResponse.status,
+                      'Не удалось получить данные пользователя')
+  }
+
+  const backendUser = profileData as BackendUser
+  const user: User = {
+    id: backendUser.id,
+    name: backendUser.name,
+    email: backendUser.email,
+    createdAt: backendUser.created_at
+  }
+  localStorage.setItem(KEYS.currentUserId, user.id)
+  return {
+    user,
+    accessToken
+  }
+},
+
+  //todo: CHANGED
+  async logout(): Promise<void> {
+    const token = localStorage.getItem(KEYS.token)
+
+    try {
+      const response = await fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: token
+        ? {
+          Authorization: `Bearer ${token}`
+        } : {}
+      })
+      if (!response.ok && response.status !== 401)
+      {
+        throw new ApiError(response.status,'Не удалось завершить сессию.')
+      } 
+    } finally {
+        localStorage.removeItem(KEYS.token)
+        localStorage.removeItem(KEYS.token)
+    }
   },
 
   getAccessToken() {
     return localStorage.getItem(KEYS.token)
   },
 
+
+  //todo: CHANGED
   async getProfile(): Promise<User> {
-    await delay(80)
-    return publicUser(requireUser())
+    const response = await authFetch(`${API_URL}/users/me`)
+
+    const data = await response.json() as BackendUser | BackendError
+
+    if (!response.ok)
+    {
+      throw new ApiError(response.status, 'Не удалось получить данные пользователя.')
+    }
+
+    const backendUser = data as BackendUser
+    return {
+      id: backendUser.id,
+      name: backendUser.name,
+      email: backendUser.email,
+      createdAt: backendUser.created_at
+    }
   },
 
   async listTrips(): Promise<TripRecord[]> {
