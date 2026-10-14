@@ -153,7 +153,7 @@ async function authFetch(
 
   const makeRequest = (accessToken: string) => {
       const headers = new Headers(options.headers)
-      headers.set('Aithorization', `Bearer ${accessToken}`)
+      headers.set('Authorization', `Bearer ${accessToken}`)
       return fetch(url, {...options, headers})
   }
   let response = await makeRequest(token)
@@ -315,7 +315,7 @@ async login(payload: {email: string; password: string}): Promise<{ user: User; a
       } 
     } finally {
         localStorage.removeItem(KEYS.token)
-        localStorage.removeItem(KEYS.token)
+        localStorage.removeItem(KEYS.currentUserId)
     }
   },
 

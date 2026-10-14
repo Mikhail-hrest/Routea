@@ -58,7 +58,6 @@ export function AuthPage({ initialMode, onAuthenticated, onModeChange }: AuthPag
     try {
       if (mode === 'register') {
         await frontendApi.register({ name, email, password })
-        frontendApi.logout()
         setSuccess('Аккаунт создан. Теперь войдите с указанными данными.')
         setMode('login')
         onModeChange('login')

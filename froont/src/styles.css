@@ -178,7 +178,7 @@ h1 span { color: var(--yellow); font-size: 19px; }
 @keyframes loading-pulse { 50% { transform: scale(.92); opacity: .75; } }
 
 .auth-page { min-height: 100vh; display: grid; grid-template-columns: minmax(420px, 1.05fr) minmax(430px, .95fr); margin: 0; background: var(--paper); }
-.auth-showcase { min-height: 100vh; position: relative; overflow: hidden; display: flex; flex-direction: column; color: white; background-image: linear-gradient(90deg, rgba(9, 35, 46, .82) 0%, rgba(12, 44, 57, .62) 52%, rgba(12, 43, 53, .25) 100%), url('./assets/registration-travel-bg.png'); background-size: cover; background-position: center; padding: 34px 8%; }
+.auth-showcase { min-height: 100vh; position: relative; overflow: hidden; display: flex; flex-direction: column; color: white; background: var(--green); padding: 34px 8%; }
 .auth-showcase::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6, 27, 36, .18), transparent 36%, rgba(5, 27, 34, .28)); pointer-events: none; }
 .auth-brand { position: relative; z-index: 2; display: flex; align-items: center; gap: 10px; font: 800 21px/1 'Manrope', sans-serif; letter-spacing: -.7px; }
 .auth-brand > span { width: 38px; height: 38px; display: grid; place-items: center; background: var(--coral); border-radius: 50% 50% 46% 54%; transform: rotate(-8deg); }.auth-brand svg { width: 21px; transform: rotate(8deg); }
