@@ -1,0 +1,55 @@
+name: routea-local
+
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${ROUTEA_DB_NAME:-routea}
+      POSTGRES_USER: ${ROUTEA_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${ROUTEA_DB_PASSWORD:-routea_local_password}
+    ports:
+      - "${ROUTEA_DB_PORT:-5432}:5432"
+    volumes:
+      - routea_postgres_data:/var/lib/postgresql/data
+      - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./database/migrations/002_add_users_name.sql:/docker-entrypoint-initdb.d/002_add_users_name.sql:ro
+      - ./database/seeds/001_expense_categories.sql:/docker-entrypoint-initdb.d/003_expense_categories.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.local
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${ROUTEA_DB_NAME:-routea}
+      DB_USER: ${ROUTEA_DB_USER:-postgres}
+      DB_PASSWORD: ${ROUTEA_DB_PASSWORD:-routea_local_password}
+      PASSWORD_PEPPER: ${ROUTEA_PASSWORD_PEPPER:-local-development-pepper-change-me}
+      JWT_SECRET: ${ROUTEA_JWT_SECRET:-local-development-jwt-secret-change-me}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_TTL_MIN: 15
+      REFRESH_TOKEN_TTL_DAYS: 30
+      JWT_ISSUER: routea
+      JWT_AUDIENCE: routea-client
+    ports:
+      - "${ROUTEA_API_PORT:-8000}:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  routea_postgres_data:
