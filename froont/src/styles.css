@@ -157,6 +157,10 @@ h1 span { color: var(--yellow); font-size: 19px; }
 .auth-flat-submit svg { width: 25px; height: 25px; padding: 5px; color: #fff; background: var(--coral); border-radius: 50%; transition: transform .18s; }
 .auth-flat-submit:hover svg { transform: translateX(4px); }
 .auth-flat-submit:disabled { opacity: .55; cursor: wait; }
+.auth-code-field input { font-size: 20px; font-weight: 800; letter-spacing: 9px; }
+.auth-resend-button { margin-top: 2px; padding: 8px 0; border: 0; border-bottom: 1px solid #fffdf57a; color: #d6e2df; background: transparent; font-size: 9px; font-weight: 700; letter-spacing: .8px; cursor: pointer; }
+.auth-resend-button:hover { color: #f4cc78; border-bottom-color: #f4cc78; }
+.auth-resend-button:disabled { opacity: .55; cursor: wait; }
 
 @media (max-width: 620px) {
   .auth-flat-shell { width: min(100% - 32px, 690px); padding-top: 24px; }

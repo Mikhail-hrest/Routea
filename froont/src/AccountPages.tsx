@@ -24,12 +24,15 @@ type AuthPageProps = {
   onModeChange: (mode: 'login' | 'register') => void
 }
 
+type AuthMode = 'login' | 'register' | 'verify'
+
 export function AuthPage({ initialMode, onAuthenticated, onModeChange }: AuthPageProps) {
-  const [mode, setMode] = useState(initialMode)
+  const [mode, setMode] = useState<AuthMode>(initialMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -46,6 +49,15 @@ export function AuthPage({ initialMode, onAuthenticated, onModeChange }: AuthPag
     onModeChange(nextMode)
   }
 
+  const showVerification = () => {
+    setMode('verify')
+    setPassword('')
+    setConfirmation('')
+    setVerificationCode('')
+    setError('')
+    setSuccess('Если этот адрес можно использовать для регистрации, на него отправлен код подтверждения.')
+  }
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
@@ -58,17 +70,36 @@ export function AuthPage({ initialMode, onAuthenticated, onModeChange }: AuthPag
     try {
       if (mode === 'register') {
         await frontendApi.register({ name, email, password })
-        setSuccess('Аккаунт создан. Теперь войдите с указанными данными.')
-        setMode('login')
-        onModeChange('login')
-        setPassword('')
-        setConfirmation('')
+        showVerification()
+      } else if (mode === 'verify') {
+        await frontendApi.verifyEmail({ email, code: verificationCode })
+        changeMode('login')
+        setSuccess('Email подтверждён. Теперь можно войти в аккаунт.')
       } else {
         const result = await frontendApi.login({ email, password })
         onAuthenticated(result.user)
       }
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Не удалось выполнить запрос. Попробуйте ещё раз.')
+      if (mode === 'register' && caught instanceof ApiError && caught.status === 409) {
+        showVerification()
+      } else {
+        setError(caught instanceof ApiError ? caught.message : 'Не удалось выполнить запрос. Попробуйте ещё раз.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+
+  const resendCode = async () => {
+    setError('')
+    setSuccess('')
+    setSubmitting(true)
+    try {
+      await frontendApi.resendVerification(email)
+      setSuccess('Если адрес ожидает подтверждения, новый код отправлен на почту.')
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Не удалось повторно отправить код.')
     } finally {
       setSubmitting(false)
     }
@@ -84,23 +115,25 @@ export function AuthPage({ initialMode, onAuthenticated, onModeChange }: AuthPag
               <path d="M1 6C8 0 14 12 21 6S34 0 41 6 54 12 61 6 74 0 81 6" />
             </svg>
           </div>
-          <button type="button" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Создать аккаунт' : 'Уже есть аккаунт? Войти'}</button>
+          <button type="button" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Создать аккаунт' : mode === 'verify' ? 'Вернуться ко входу' : 'Уже есть аккаунт? Войти'}</button>
         </header>
 
         <div className="auth-flat-content">
           <p className="auth-flat-kicker">ROUTEA / ЛИЧНЫЙ КАБИНЕТ</p>
-          <h1>{mode === 'login' ? 'ВХОД' : 'РЕГИСТРАЦИЯ'}</h1>
-          <p className="auth-flat-description">{mode === 'login' ? 'Введите данные своего аккаунта.' : 'Создайте аккаунт для сохранения поездок.'}</p>
+          <h1>{mode === 'login' ? 'ВХОД' : mode === 'verify' ? 'ПОДТВЕРЖДЕНИЕ' : 'РЕГИСТРАЦИЯ'}</h1>
+          <p className="auth-flat-description">{mode === 'login' ? 'Введите данные своего аккаунта.' : mode === 'verify' ? `Введите шестизначный код, отправленный на ${email.trim().toLowerCase()}.` : 'Создайте аккаунт для сохранения поездок.'}</p>
 
           <form onSubmit={submit} className="auth-flat-form" noValidate>
             {mode === 'register' && <label className="auth-line-field"><span>ВАШЕ ИМЯ <b>*</b></span><div><input autoFocus value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="Анна Ковалёва" required minLength={2} /></div></label>}
-            <label className="auth-line-field"><span>EMAIL <b>*</b></span><div><input autoFocus={mode === 'login'} value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="name@example.ru" required /></div></label>
-            <label className="auth-line-field"><span>ПАРОЛЬ <b>*</b></span><div><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Не менее 8 символов" required minLength={8} /><button type="button" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff /> : <Eye />}</button></div></label>
+            {mode !== 'verify' && <label className="auth-line-field"><span>EMAIL <b>*</b></span><div><input autoFocus={mode === 'login'} value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="name@example.ru" required /></div></label>}
+            {mode !== 'verify' && <label className="auth-line-field"><span>ПАРОЛЬ <b>*</b></span><div><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Не менее 8 символов" required minLength={8} /><button type="button" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff /> : <Eye />}</button></div></label>}
             {mode === 'register' && <label className="auth-line-field"><span>ПОВТОРИТЕ ПАРОЛЬ <b>*</b></span><div><input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Введите пароль ещё раз" required /></div></label>}
             {mode === 'register' && <p className="auth-password-note">Пароль: минимум 8 символов, заглавная и строчная буквы, цифра.</p>}
+            {mode === 'verify' && <label className="auth-line-field auth-code-field"><span>КОД ИЗ ПИСЬМА <b>*</b></span><div><input autoFocus value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" minLength={6} maxLength={6} required /></div></label>}
             {error && <div className="form-message error" role="alert">{error}</div>}
             {success && <div className="form-message success" role="status"><Check />{success}</div>}
-            <button className="auth-flat-submit" disabled={submitting}><span>{submitting ? 'ПОДОЖДИТЕ…' : mode === 'login' ? 'ВОЙТИ' : 'СОЗДАТЬ АККАУНТ'}</span><ArrowRight /></button>
+            <button className="auth-flat-submit" disabled={submitting || (mode === 'verify' && verificationCode.length !== 6)}><span>{submitting ? 'ПОДОЖДИТЕ…' : mode === 'login' ? 'ВОЙТИ' : mode === 'verify' ? 'ПОДТВЕРДИТЬ EMAIL' : 'СОЗДАТЬ АККАУНТ'}</span><ArrowRight /></button>
+            {mode === 'verify' && <button className="auth-resend-button" type="button" onClick={resendCode} disabled={submitting}>Отправить код повторно</button>}
           </form>
         </div>
       </section>

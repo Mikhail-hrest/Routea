@@ -230,6 +230,33 @@ export const frontendApi = {
     }
   },
 
+  async verifyEmail(payload: { email: string; code: string }): Promise<void> {
+    const response = await fetch(`${API_URL}/auth/verify-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: payload.email.trim().toLowerCase(),
+        code: payload.code,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new ApiError(response.status, 'Код неверный или срок его действия истёк.')
+    }
+  },
+
+  async resendVerification(email: string): Promise<void> {
+    const response = await fetch(`${API_URL}/auth/resend-verification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    })
+
+    if (!response.ok) {
+      throw new ApiError(response.status, 'Не удалось отправить новый код. Попробуйте позже.')
+    }
+  },
+
   //todo: CHANGED
 async login(payload: {email: string; password: string}): Promise<{ user: User; accessToken: string }> {
   const response = await fetch(`${API_URL}/auth/login`, {
