@@ -12,6 +12,7 @@ import {
   CircleDollarSign,
   KeyRound,
   LockKeyhole,
+  LogOut,
   Moon,
   Mail,
   MapPin,
@@ -150,14 +151,14 @@ export function AuthPage({ initialMode, onAuthenticated, onModeChange }: AuthPag
   )
 }
 
-export function ProfilePage({ user }: { user: User }) {
+export function ProfilePage({ user, onLogout }: { user: User; onLogout: () => void }) {
   const initials = user.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
   const registered = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(user.createdAt))
   return (
     <section className="account-page">
       <div className="page-heading"><div><p className="eyebrow coral-text">Личный кабинет</p><h1>Мой профиль</h1><p>Основные данные вашего аккаунта Routea.</p></div></div>
       <div className="profile-layout">
-        <article className="profile-identity panel"><div className="profile-avatar-large">{initials}</div><h2>{user.name}</h2><p>{user.email}</p><span><ShieldCheck />Аккаунт защищён</span></article>
+        <article className="profile-identity panel"><div className="profile-avatar-large">{initials}</div><h2>{user.name}</h2><p>{user.email}</p><span><ShieldCheck />Аккаунт защищён</span><button className="profile-logout-button" onClick={onLogout}><LogOut />Выйти из аккаунта</button></article>
         <article className="profile-details panel"><div className="section-title"><div><p className="eyebrow">Персональные данные</p><h3>Основная информация</h3></div></div><dl><div><dt><UserRound />Имя</dt><dd>{user.name}</dd></div><div><dt><Mail />Email</dt><dd>{user.email}</dd></div><div><dt><CalendarDays />Дата регистрации</dt><dd>{registered}</dd></div></dl></article>
       </div>
     </section>

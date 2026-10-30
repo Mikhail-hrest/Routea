@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
-  Bell,
   ChevronDown,
   CircleHelp,
   Compass,
@@ -17,7 +16,6 @@ import {
   LogOut,
   Map,
   MapPin,
-  Menu,
   Plus,
   Settings,
   ShoppingBag,
@@ -33,16 +31,17 @@ import { FlightsView, HotelsView, TripWorkspace, type BookingState, defaultBooki
 import { AuthPage, ProfilePage, SettingsPage, TripsPage, TripDetailsIntro } from './AccountPages'
 import { ApiError, frontendApi, type TripRecord, type User } from './services/frontendApi'
 import romeHotels from './assets/rome-hotels.png'
+import amalfiCoast from './assets/amalfi-coast.png'
 
 type NavKey = 'overview' | 'trips' | 'flights' | 'hotels' | 'places' | 'budget' | 'profile' | 'settings'
 
 const navItems: { key: NavKey; label: string; icon: typeof Home }[] = [
+  { key: 'overview', label: 'Обзор', icon: Home },
   { key: 'trips', label: 'Мои поездки', icon: Map },
   { key: 'flights', label: 'Авиабилеты', icon: Plane },
   { key: 'hotels', label: 'Отели', icon: Building2 },
   { key: 'places', label: 'Избранные места', icon: MapPin },
   { key: 'budget', label: 'Бюджет', icon: WalletCards },
-  { key: 'profile', label: 'Профиль', icon: UserRound },
 ]
 
 const itinerary = [
@@ -122,7 +121,6 @@ function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const [activeNav, setActiveNav] = useState<NavKey>('trips')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [destinationSuggestionsOpen, setDestinationSuggestionsOpen] = useState(false)
   const [toast, setToast] = useState('')
@@ -167,12 +165,8 @@ function App() {
       navigate('/', { replace: true })
       return
     }
-    if (path === '/') {
-      setActiveNav('trips')
-      navigate('/trips', { replace: true })
-      return
-    }
-    if (path === '/profile') setActiveNav('profile')
+    if (path === '/' || path === '/overview') setActiveNav('overview')
+    else if (path === '/profile') setActiveNav('profile')
     else if (path === '/settings') setActiveNav('settings')
     else if (path.startsWith('/trips')) setActiveNav('trips')
     else if (path === '/flights') setActiveNav('flights')
@@ -200,7 +194,6 @@ function App() {
 
   const navigateTo = (key: NavKey) => {
     setActiveNav(key)
-    setSidebarOpen(false)
     setDetailPlanning(false)
     navigate(routeForNav[key])
   }
@@ -243,8 +236,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <button className="mobile-close" aria-label="Закрыть меню" onClick={() => setSidebarOpen(false)}><X /></button>
+      <aside className="sidebar">
         <div className="brand">
           <span>ROUTEA</span>
         </div>
@@ -264,98 +256,58 @@ function App() {
           ))}
         </nav>
 
+        <button className="create-button nav-create-button" onClick={() => { setTripError(''); setModalOpen(true) }}><Plus size={18} />Новая поездка</button>
+
         <div className="sidebar-spacer" />
         <div className="journey-note">
           <div className="postcard-art"><span>✦</span></div>
           <strong>Путешествие начинается с идеи</strong>
           <p>Сохраняйте места и собирайте свой идеальный маршрут.</p>
         </div>
-        <nav className="secondary-nav">
-          <button className={activeNav === 'settings' ? 'active' : ''} onClick={() => navigateTo('settings')}><Settings size={18} />Настройки</button>
-          <button onClick={() => notify('Мы рядом, если нужна помощь')}><CircleHelp size={18} />Помощь</button>
+        <nav className="secondary-nav" aria-label="Дополнительные разделы">
+          <button className={activeNav === 'settings' ? 'active' : ''} aria-label="Настройки" title="Настройки" onClick={() => navigateTo('settings')}><Settings size={18} /></button>
+          <button aria-label="Помощь" title="Помощь" onClick={() => notify('Мы рядом, если нужна помощь')}><CircleHelp size={18} /></button>
         </nav>
         <div className="profile-mini">
-          <button className="avatar" aria-label="Открыть профиль" onClick={() => navigateTo('profile')}>{initials}</button>
-          <button className="profile-mini-copy" onClick={() => navigateTo('profile')}><strong>{user.name}</strong><span>{user.email}</span></button>
-          <button className="logout-button" onClick={logout}><LogOut size={16} /><span>Выйти из аккаунта</span></button>
+          <button className={`avatar ${activeNav === 'profile' ? 'profile-active' : ''}`} aria-label="Открыть профиль" aria-current={activeNav === 'profile' ? 'page' : undefined} onClick={() => navigateTo('profile')}>{initials}</button>
+          <button className={`profile-mini-copy ${activeNav === 'profile' ? 'profile-active' : ''}`} onClick={() => navigateTo('profile')}><strong>{user.name}</strong><span>{user.email}</span></button>
         </div>
       </aside>
 
-      {sidebarOpen && <button className="scrim" aria-label="Закрыть меню" onClick={() => setSidebarOpen(false)} />}
-
       <main>
-        <header className="topbar">
-          <button className="menu-button" aria-label="Открыть меню" onClick={() => setSidebarOpen(true)}><Menu /></button>
-          <div className="mobile-brand">ROUTEA</div>
-          <button className="icon-button notification" aria-label="Уведомления" onClick={() => notify('Новых уведомлений нет')}><Bell size={20} /><i /></button>
-          <button className="create-button" onClick={() => { setTripError(''); setModalOpen(true) }}><Plus size={19} />Новая поездка</button>
-        </header>
-
         <div className={`content ${activeNav !== 'overview' ? 'feature-content' : 'overview-content'}`}>
-          {activeNav === 'overview' ? <section className="travel-overview">
-            <header className="overview-heading">
-              <h1>Мои путешествия</h1>
-            </header>
-
-            <div className="overview-layout">
-              <article className="overview-card next-trip-card">
-                <div className="overview-card-title"><h2>Ближайшая поездка</h2><button aria-label="Действия"><Ellipsis /></button></div>
-                <img src={romeHotels} alt="Вид на Рим" />
-                <div className="next-trip-copy">
-                  <h3>Рим</h3>
-                  <p>12–19 октября · 8 дней</p>
-                </div>
-                <div className="next-trip-facts">
-                  <span><Plane /><small>Маршрут</small><strong>8 дней</strong></span>
-                  <span><WalletCards /><small>Бюджет</small><strong>{budget.toLocaleString('ru-RU')} ₽</strong></span>
-                </div>
-                <button className="overview-primary" onClick={() => navigateTo('trips')}>Открыть поездку <ArrowRight /></button>
-              </article>
-
-              <section className="overview-card overview-schedule">
-                <div className="overview-card-title"><h2>Октябрь 2025</h2><span>‹ &nbsp; ›</span></div>
-                {[
-                  { date: '12 окт', day: 'Вс', title: 'Вылет в Рим', note: 'Москва → Рим', icon: Plane },
-                  { date: '13 окт', day: 'Пн', title: 'Колизей', note: 'Экскурсия · 10:00', icon: Landmark },
-                  { date: '14 окт', day: 'Вт', title: 'Фонтан Треви', note: 'Прогулка', icon: MapPin },
-                  { date: '16 окт', day: 'Чт', title: 'Ватикан', note: 'Музеи · 11:00', icon: Ticket },
-                  { date: '19 окт', day: 'Вс', title: 'Обратный вылет', note: 'Рим → Москва', icon: Plane },
-                ].map((event) => <div className="schedule-row" key={event.date}>
-                  <time><strong>{event.date}</strong><small>{event.day}</small></time>
-                  <i />
-                  <event.icon />
-                  <span><strong>{event.title}</strong><small>{event.note}</small></span>
-                </div>)}
-              </section>
-
-              <section className="overview-card favorite-places">
-                <div className="overview-card-title"><h2>Избранные места</h2><button onClick={() => navigateTo('places')}>Смотреть все <ArrowRight /></button></div>
-                {[
-                  { name: 'Колизей', position: '12%' },
-                  { name: 'Фонтан Треви', position: '50%' },
-                  { name: 'Ватикан', position: '82%' },
-                ].map((place) => <button className="favorite-row" key={place.name} onClick={() => navigateTo('places')}>
-                  <span className="favorite-thumb" style={{ backgroundImage: `url(${romeHotels})`, backgroundPosition: `${place.position} center` }} />
-                  <span><strong>{place.name}</strong><small>Рим, Италия</small></span>
-                  <Heart />
-                </button>)}
-              </section>
-
-              <section className="overview-card overview-expenses">
-                <div className="overview-card-title"><h2>Расходы</h2><button onClick={() => navigateTo('budget')}>Смотреть все <ArrowRight /></button></div>
-                {expenses.map((expense) => <div className="overview-expense-row" key={expense.label}>
-                  <expense.icon style={{ color: expense.color }} />
-                  <span>{expense.label}</span>
-                  <i><b style={{ width: `${Math.max(18, Math.round(expense.value / 680))}%`, background: expense.color }} /></i>
-                  <strong>{expense.value.toLocaleString('ru-RU')} ₽</strong>
-                </div>)}
-                <div className="overview-expense-total"><span>Потрачено</span><strong>{spent.toLocaleString('ru-RU')} ₽ из {budget.toLocaleString('ru-RU')} ₽</strong></div>
-              </section>
+          {activeNav === 'overview' ? <section className="routea-overview">
+            <div className="overview-intro">
+              <p className="eyebrow coral-text">ПУТЕШЕСТВИЕ НАЧИНАЕТСЯ С ИДЕИ</p>
+              <h1>Все детали поездки —<br />в одном маршруте.</h1>
+              <p className="overview-lead">Routea собирает планы, билеты, отели и расходы в одном месте — чтобы вы меньше переключались между сервисами и больше думали о самом путешествии.</p>
+              <div className="overview-promise"><span>Один план поездки</span><i /><span>Все важные детали</span><i /><span>Бюджет под контролем</span></div>
             </div>
+
+            <div className="overview-photo" style={{ backgroundImage: `url(${amalfiCoast})` }} role="img" aria-label="Амальфитанское побережье Италии">
+              <span className="overview-photo-kicker">МЕСТО ДЛЯ СЛЕДУЮЩЕЙ ИСТОРИИ</span>
+              <div className="overview-photo-caption"><small>ИДЕЯ ДЛЯ ПОЕЗДКИ</small><strong>Амальфитанское побережье</strong><span>Италия · море, городки и дорога вдоль берега</span></div>
+              <div className="overview-photo-note"><span>ПУТЕШЕСТВИЕ В ROUTEA</span><strong>От первого решения<br />до готового плана</strong><i><b>Даты</b><b>Маршрут</b><b>Бюджет</b></i></div>
+            </div>
+
+            <section className="overview-tools">
+              <div className="overview-section-heading"><div><p className="eyebrow">ВАШ ПЛАН — ВАШИ ПРАВИЛА</p><h2>Всё нужное для поездки</h2></div><p>От первых дат до последней прогулки.</p></div>
+              <div className="overview-feature-grid">
+                <button className="overview-feature-card" onClick={() => navigateTo('trips')}><span className="overview-feature-icon green"><Map /></span><small>01 · ПЛАН</small><strong>Поездки и маршруты</strong><p>Соберите места по дням и держите план под рукой.</p><span className="feature-link">Мои поездки <ArrowRight /></span></button>
+                <button className="overview-feature-card" onClick={() => navigateTo('flights')}><span className="overview-feature-icon coral"><Plane /></span><small>02 · ДОРОГА</small><strong>Билеты и отели</strong><p>Сравните варианты и сохраните выбранное в поездке.</p><span className="feature-link">Найти варианты <ArrowRight /></span></button>
+                <button className="overview-feature-card" onClick={() => navigateTo('budget')}><span className="overview-feature-icon ochre"><WalletCards /></span><small>03 · БЮДЖЕТ</small><strong>Расходы под контролем</strong><p>Планируйте затраты и понимайте, сколько останется.</p><span className="feature-link">Открыть бюджет <ArrowRight /></span></button>
+              </div>
+            </section>
+
+            <section className="overview-process">
+              <div><p className="eyebrow">ПРОСТО НАЧАТЬ</p><h2>От идеи до путешествия</h2></div>
+              <div className="overview-process-steps"><span><i>1</i><b>Создайте поездку</b><small>Город, даты и бюджет</small></span><span><i>2</i><b>Подберите варианты</b><small>Рейс и место проживания</small></span><span><i>3</i><b>Соберите маршрут</b><small>Места и планы по дням</small></span></div>
+              <button className="overview-process-cta" onClick={() => { setTripError(''); setModalOpen(true) }}>Начать планирование <ArrowRight /></button>
+            </section>
           </section> : activeNav === 'settings' ? (
             <SettingsPage user={user} onUserUpdate={setUser} />
           ) : activeNav === 'profile' ? (
-            <ProfilePage user={user} />
+            <ProfilePage user={user} onLogout={logout} />
           ) : activeNav === 'trips' ? (
             location.pathname.match(/^\/trips\/[^/]+$/) && selectedTrip ? (
               detailPlanning ? <TripWorkspace booking={booking} setBooking={setBooking} initialSection="trips" onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} /> : <TripDetailsIntro trip={selectedTrip} booking={booking} onBack={() => navigateTo('trips')} onContinue={() => setDetailPlanning(true)} />
