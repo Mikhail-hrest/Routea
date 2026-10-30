@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
+  BedDouble,
   CalendarDays,
   Check,
   Compass,
@@ -12,11 +13,14 @@ import {
   Mail,
   MapPin,
   Plus,
+  Plane,
   ShieldCheck,
+  Utensils,
   UserRound,
   WalletCards,
 } from 'lucide-react'
 import { ApiError, frontendApi, type TripRecord, type User } from './services/frontendApi'
+import type { BookingState } from './TripPlanner'
 
 type AuthPageProps = {
   initialMode: 'login' | 'register'
@@ -181,13 +185,43 @@ export function TripsPage({ refreshKey, onCreate, onOpen }: TripsPageProps) {
   )
 }
 
-export function TripDetailsIntro({ trip, onBack, onContinue }: { trip: TripRecord; onBack: () => void; onContinue: () => void }) {
+export function TripDetailsIntro({ trip, booking, onBack, onContinue }: { trip: TripRecord; booking: BookingState; onBack: () => void; onContinue: () => void }) {
+  const tripPlaces = [...booking.places].sort((a, b) => (a.day ?? 1) - (b.day ?? 1))
+  const routeItems = [
+    ...(booking.flight ? [{ key: 'flight', day: 1, title: `Вылет в ${trip.destination.split(',')[0]}`, note: `${booking.origin} → ${trip.destination.split(',')[0]} · ${booking.flight.departure}`, Icon: Plane }] : []),
+    ...(booking.hotel ? [{ key: 'hotel', day: 1, title: 'Заселение в отель', note: booking.hotel.name, Icon: BedDouble }] : []),
+    ...tripPlaces.map((place) => ({ key: `place-${place.id}`, day: place.day ?? 1, title: place.title, note: `${place.category}${place.expenseNote ? ` · ${place.expenseNote}` : ''}`, Icon: MapPin })),
+  ].sort((a, b) => a.day - b.day)
+  const routeExpenses = booking.places.reduce((sum, place) => sum + (place.plannedCost ?? 0), 0)
+  const expenses = [
+    { label: 'Авиабилеты', value: booking.flight?.price ?? 0, Icon: Plane },
+    { label: 'Проживание', value: booking.hotel?.total ?? 0, Icon: BedDouble },
+    { label: 'Места маршрута', value: routeExpenses, Icon: MapPin },
+    { label: 'Прочие расходы', value: booking.otherExpenses, Icon: Utensils },
+  ]
+  const planned = expenses.reduce((sum, item) => sum + item.value, 0)
+  const left = trip.budget - planned
+  const progress = trip.budget > 0 ? Math.min(100, Math.round(planned / trip.budget * 100)) : 0
+
   return (
-    <section className="trip-detail-intro">
+    <section className="trip-detail-intro trip-overview-page">
       <button className="back-link" onClick={onBack}><ArrowLeft />Все поездки</button>
-      <div className="trip-detail-banner">
-        <div><p className="eyebrow">Запланированная поездка</p><h1>{trip.name}</h1><p><MapPin />{trip.destination}</p><div><span><CalendarDays />{formatTripDates(trip.startDate, trip.endDate)}</span><span><WalletCards />Бюджет {trip.budget.toLocaleString('ru-RU')} ₽</span></div><button className="open-trip" onClick={onContinue}>Продолжить планирование <ArrowRight /></button></div>
-        <div className="trip-detail-art"><Compass /><i /><i /><i /></div>
+      <header className="trip-overview-heading"><div><p className="eyebrow coral-text">{trip.destination}</p><h1>{trip.name}</h1><p><CalendarDays />{formatTripDates(trip.startDate, trip.endDate)} <span>·</span> Бюджет {trip.budget.toLocaleString('ru-RU')} ₽</p></div><button className="primary-action" onClick={onContinue}>Продолжить планирование <ArrowRight /></button></header>
+      <div className="trip-detail-panels">
+        <section className="panel trip-itinerary-panel">
+          <div className="overview-card-title"><h2>Маршрут</h2><span>{routeItems.length ? `${routeItems.length} пунктов` : 'Пока пусто'}</span></div>
+          {routeItems.length ? <div className="trip-detail-timeline">{routeItems.map((item) => {
+            const dayDate = new Date(new Date(`${trip.startDate}T12:00:00`).getTime() + (item.day - 1) * 86400000)
+            const date = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(dayDate)
+            return <article key={item.key}><time><strong>{date}</strong><small>День {item.day}</small></time><i /><span className="trip-timeline-icon"><item.Icon /></span><div><strong>{item.title}</strong><small>{item.note}</small></div></article>
+          })}</div> : <div className="trip-detail-empty"><p>Добавьте билеты, отель и места — они появятся здесь по дням поездки.</p><button onClick={onContinue}>Составить маршрут <ArrowRight /></button></div>}
+        </section>
+        <aside className="panel trip-budget-panel">
+          <div className="overview-card-title"><h2>Бюджет</h2><span>{progress}%</span></div>
+          <div className="trip-budget-summary"><div className="trip-budget-donut" style={{ background: `conic-gradient(var(--green) ${progress}%, #e6e8e2 ${progress}%)` }}><div><strong>{planned.toLocaleString('ru-RU')} ₽</strong><small>из {trip.budget.toLocaleString('ru-RU')} ₽</small></div></div><div className="trip-budget-left"><small>Осталось</small><strong className={left < 0 ? 'over-budget' : ''}>{Math.abs(left).toLocaleString('ru-RU')} ₽</strong></div></div>
+          <div className="trip-budget-breakdown">{expenses.map(({ label, value, Icon }) => <div key={label}><Icon /><span>{label}</span><strong>{value.toLocaleString('ru-RU')} ₽</strong></div>)}</div>
+          <button className="trip-budget-link" onClick={onContinue}>Управление бюджетом <ArrowRight /></button>
+        </aside>
       </div>
     </section>
   )

@@ -56,6 +56,8 @@ export type NearbyPlace = {
   note: string
   lat: number
   lon: number
+  plannedCost?: number
+  expenseNote?: string
   day?: number
 }
 
@@ -250,7 +252,8 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
   const selectedPlace = typeof activeMarker === 'number' ? nearbyPlaces.find((place) => place.id === activeMarker) : null
   const flightCost = booking.flight?.price ?? 0
   const hotelCost = booking.hotel?.total ?? 0
-  const planned = flightCost + hotelCost + booking.otherExpenses
+  const placeExpenses = booking.places.reduce((sum, place) => sum + (place.plannedCost ?? 0), 0)
+  const planned = flightCost + hotelCost + booking.otherExpenses + placeExpenses
   const remaining = booking.budget - planned
   const filtered = category === 'Все' ? nearbyPlaces : nearbyPlaces.filter((place) => place.category === category)
   const routePoints: Coordinates[] = booking.hotel && booking.places.length > 0
@@ -390,13 +393,36 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
 
       {workspaceTab === 'route' && <section className="route-builder panel">
         <div className="results-heading"><div><p className="eyebrow">План поездки</p><h3>Распределите места по дням</h3></div><span>{booking.places.length} мест добавлено</span></div>
-        <div className="route-days">{groupedPlaces.map(({ day, items }) => <article key={day}><header><span>0{day}</span><div><strong>День {day}</strong><small>{formatDate(new Date(new Date(`${booking.startDate}T12:00:00`).getTime() + (day - 1) * 86400000).toISOString().slice(0, 10))}</small></div><b>{items.length} мест</b></header><div className="route-day-body">{day === 1 && booking.hotel && <div className="route-place hotel"><BedDouble /><div><strong>{booking.hotel.name}</strong><span>Ваш отель · точка старта</span></div></div>}{items.map((place) => <div className="route-place" key={place.id}><MapPin /><div><strong>{place.title}</strong><span>{place.category} · {place.distance}</span></div><select aria-label="Перенести в другой день" value={place.day} onChange={(e) => setBooking({ ...booking, places: booking.places.map((item) => item.id === place.id ? { ...item, day: Number(e.target.value) } : item) })}><option value="1">День 1</option><option value="2">День 2</option><option value="3">День 3</option></select></div>)}{items.length === 0 && !(day === 1 && booking.hotel) && <button onClick={() => setWorkspaceTab('map')}><Plus />Добавить место</button>}</div></article>)}</div>
+        <div className="route-days">{groupedPlaces.map(({ day, items }) => {
+          const dayExpenses = items.reduce((sum, place) => sum + (place.plannedCost ?? 0), 0)
+          return <article key={day}>
+            <header><span>0{day}</span><div><strong>День {day}</strong><small>{formatDate(new Date(new Date(`${booking.startDate}T12:00:00`).getTime() + (day - 1) * 86400000).toISOString().slice(0, 10))}</small></div><b>{items.length} мест · {dayExpenses.toLocaleString('ru-RU')} ₽</b></header>
+            <div className="route-day-body">
+              {day === 1 && booking.hotel && <div className="route-place hotel"><BedDouble /><div><strong>{booking.hotel.name}</strong><span>Ваш отель · точка старта</span></div></div>}
+              {items.map((place) => <div className="route-place" key={place.id}>
+                <MapPin />
+                <div className="route-place-details">
+                  <strong>{place.title}</strong><span>{place.category} · {place.distance}</span>
+                  <div className="place-expense-fields">
+                    <label><span>Планируемые расходы</span><div className="place-cost-input"><input type="number" min="0" step="100" value={place.plannedCost ?? ''} placeholder="0" aria-label={`Расходы на ${place.title}`} onChange={(event) => {
+                      const value = event.target.value
+                      setBooking({ ...booking, places: booking.places.map((item) => item.id === place.id ? { ...item, plannedCost: value === '' ? undefined : Math.max(0, Number(value)) } : item) })
+                    }} /><b>₽</b></div></label>
+                    <label><span>Заметка</span><input type="text" value={place.expenseNote ?? ''} placeholder="Например: обед на двоих" aria-label={`Заметка к ${place.title}`} onChange={(event) => setBooking({ ...booking, places: booking.places.map((item) => item.id === place.id ? { ...item, expenseNote: event.target.value } : item) })} /></label>
+                  </div>
+                </div>
+                <select aria-label="Перенести в другой день" value={place.day} onChange={(event) => setBooking({ ...booking, places: booking.places.map((item) => item.id === place.id ? { ...item, day: Number(event.target.value) } : item) })}><option value="1">День 1</option><option value="2">День 2</option><option value="3">День 3</option></select>
+              </div>)}
+              {items.length === 0 && !(day === 1 && booking.hotel) && <button onClick={() => setWorkspaceTab('map')}><Plus />Добавить место</button>}
+            </div>
+          </article>
+        })}</div>
         <div className="flow-actions"><button className="secondary-action" onClick={() => setWorkspaceTab('map')}><ArrowLeft size={17} />К карте</button><button className="primary-action" onClick={() => setWorkspaceTab('budget')}>Посмотреть бюджет <ArrowRight size={17} /></button></div>
       </section>}
 
       {workspaceTab === 'budget' && <section className="trip-budget-layout">
         <div className="panel budget-summary-large"><p className="eyebrow">Финансы поездки</p><h3>Бюджет путешествия</h3><div className="budget-big-number"><small>Запланировано</small><strong>{planned.toLocaleString('ru-RU')} ₽</strong><span>из {booking.budget.toLocaleString('ru-RU')} ₽</span></div><div className="budget-progress"><i style={{ width: `${Math.min(100, planned / booking.budget * 100)}%` }} /></div><div className={`budget-remain ${remaining < 0 ? 'negative' : ''}`}><span>{remaining >= 0 ? 'Осталось' : 'Превышение бюджета'}</span><strong>{Math.abs(remaining).toLocaleString('ru-RU')} ₽</strong></div></div>
-        <div className="panel cost-breakdown"><div className="section-title"><div><p className="eyebrow">Структура расходов</p><h3>Запланировано</h3></div></div><div className="cost-list"><button onClick={onFindFlights}><span className="cost-icon flight"><Plane /></span><div><strong>Авиабилеты</strong><small>{booking.flight ? booking.flight.airline : 'Не выбраны'}</small></div><b>{flightCost ? `${flightCost.toLocaleString('ru-RU')} ₽` : 'Выбрать'} </b><ChevronRight /></button><button onClick={onFindHotels}><span className="cost-icon stay"><Building2 /></span><div><strong>Проживание</strong><small>{booking.hotel ? booking.hotel.name : 'Не выбрано'}</small></div><b>{hotelCost ? `${hotelCost.toLocaleString('ru-RU')} ₽` : 'Выбрать'}</b><ChevronRight /></button><div><span className="cost-icon other"><Utensils /></span><div><strong>Питание и развлечения</strong><small>Примерный план</small></div><b>{booking.otherExpenses.toLocaleString('ru-RU')} ₽</b></div></div></div>
+        <div className="panel cost-breakdown"><div className="section-title"><div><p className="eyebrow">Структура расходов</p><h3>Запланировано</h3></div></div><div className="cost-list"><button onClick={onFindFlights}><span className="cost-icon flight"><Plane /></span><div><strong>Авиабилеты</strong><small>{booking.flight ? booking.flight.airline : 'Не выбраны'}</small></div><b>{flightCost ? `${flightCost.toLocaleString('ru-RU')} ₽` : 'Выбрать'} </b><ChevronRight /></button><button onClick={onFindHotels}><span className="cost-icon stay"><Building2 /></span><div><strong>Проживание</strong><small>{booking.hotel ? booking.hotel.name : 'Не выбрано'}</small></div><b>{hotelCost ? `${hotelCost.toLocaleString('ru-RU')} ₽` : 'Выбрать'}</b><ChevronRight /></button><div><span className="cost-icon places"><MapPin /></span><div><strong>Расходы по маршруту</strong><small>{booking.places.filter((place) => (place.plannedCost ?? 0) > 0).length} мест с указанной суммой</small></div><b>{placeExpenses.toLocaleString('ru-RU')} ₽</b></div><div><span className="cost-icon other"><Utensils /></span><div><strong>Прочие расходы</strong><small>Примерный план</small></div><b>{booking.otherExpenses.toLocaleString('ru-RU')} ₽</b></div></div></div>
         <div className="completion-card"><span><Check /></span><div><strong>План поездки готов</strong><p>Билеты, отель, маршрут и бюджет собраны в одном месте.</p></div><button onClick={() => notify('Поездка сохранена в «Мои поездки»')}>Сохранить поездку</button></div>
       </section>}
     </>

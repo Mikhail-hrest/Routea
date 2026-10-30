@@ -37,7 +37,6 @@ import romeHotels from './assets/rome-hotels.png'
 type NavKey = 'overview' | 'trips' | 'flights' | 'hotels' | 'places' | 'budget' | 'profile'
 
 const navItems: { key: NavKey; label: string; icon: typeof Home }[] = [
-  { key: 'overview', label: 'Обзор', icon: Home },
   { key: 'trips', label: 'Мои поездки', icon: Map },
   { key: 'flights', label: 'Авиабилеты', icon: Plane },
   { key: 'hotels', label: 'Отели', icon: Building2 },
@@ -122,7 +121,7 @@ const destinationOptions = [
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [activeNav, setActiveNav] = useState<NavKey>('overview')
+  const [activeNav, setActiveNav] = useState<NavKey>('trips')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [destinationSuggestionsOpen, setDestinationSuggestionsOpen] = useState(false)
@@ -168,13 +167,18 @@ function App() {
       navigate('/', { replace: true })
       return
     }
+    if (path === '/') {
+      setActiveNav('trips')
+      navigate('/trips', { replace: true })
+      return
+    }
     if (path === '/profile') setActiveNav('profile')
     else if (path.startsWith('/trips')) setActiveNav('trips')
     else if (path === '/flights') setActiveNav('flights')
     else if (path === '/hotels') setActiveNav('hotels')
     else if (path === '/places') setActiveNav('places')
     else if (path === '/budget') setActiveNav('budget')
-    else setActiveNav('overview')
+    else setActiveNav('trips')
 
     const tripId = path.match(/^\/trips\/([^/]+)$/)?.[1]
     if (tripId && selectedTrip?.id !== tripId) {
@@ -351,7 +355,7 @@ function App() {
             <ProfilePage user={user} />
           ) : activeNav === 'trips' ? (
             location.pathname.match(/^\/trips\/[^/]+$/) && selectedTrip ? (
-              detailPlanning ? <TripWorkspace booking={booking} setBooking={setBooking} initialSection="trips" onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} /> : <TripDetailsIntro trip={selectedTrip} onBack={() => navigateTo('trips')} onContinue={() => setDetailPlanning(true)} />
+              detailPlanning ? <TripWorkspace booking={booking} setBooking={setBooking} initialSection="trips" onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} /> : <TripDetailsIntro trip={selectedTrip} booking={booking} onBack={() => navigateTo('trips')} onContinue={() => setDetailPlanning(true)} />
             ) : <TripsPage refreshKey={tripsRefreshKey} onCreate={() => { setTripError(''); setModalOpen(true) }} onOpen={openTrip} />
           ) : activeNav === 'flights' ? (
             <FlightsView booking={booking} setBooking={setBooking} onContinue={() => navigateTo('hotels')} notify={notify} />
