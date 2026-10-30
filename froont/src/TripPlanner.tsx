@@ -46,6 +46,8 @@ export type HotelOption = {
   total: number
   address: string
   imagePosition: string
+  district: string
+  amenities: string[]
 }
 
 export type NearbyPlace = {
@@ -100,9 +102,9 @@ const flights: Flight[] = [
 ]
 
 const hotels: HotelOption[] = [
-  { id: 1, name: 'Casa Verde Roma', rating: 4.9, reviews: 428, price: 8900, total: 62300, address: 'Via Margutta, 54 · Центр Рима', imagePosition: 'left' },
-  { id: 2, name: 'Terrazza Aurelia', rating: 4.8, reviews: 316, price: 10200, total: 71400, address: 'Via Giulia, 18 · Навона', imagePosition: 'center' },
-  { id: 3, name: 'Palazzo Nuovo', rating: 4.7, reviews: 592, price: 7600, total: 53200, address: 'Via Cavour, 121 · Монти', imagePosition: 'right' },
+  { id: 1, name: 'Casa Verde Roma', rating: 4.9, reviews: 428, price: 8900, total: 62300, address: 'Via Margutta, 54 · Центр Рима', imagePosition: 'left', district: 'Центр', amenities: ['Wi-Fi', 'Завтрак', 'Фитнес'] },
+  { id: 2, name: 'Terrazza Aurelia', rating: 4.8, reviews: 316, price: 10200, total: 71400, address: 'Via Giulia, 18 · Навона', imagePosition: 'center', district: 'Навона', amenities: ['Wi-Fi', 'Завтрак', 'Терраса'] },
+  { id: 3, name: 'Palazzo Nuovo', rating: 4.7, reviews: 592, price: 7600, total: 53200, address: 'Via Cavour, 121 · Монти', imagePosition: 'right', district: 'Монти', amenities: ['Wi-Fi', 'Кондиционер', 'Завтрак'] },
 ]
 
 const nearby: NearbyPlace[] = [
@@ -175,7 +177,7 @@ function FlowHeader({ current, booking }: { current: number; booking: BookingSta
         <div className="flow-dates"><CalendarDays size={17} /><span>{formatDate(booking.startDate)} — {formatDate(booking.endDate)}</span></div>
       </div>
       <div className="flow-steps">
-        {steps.map((step, index) => <div key={step} className={index <= current ? 'done' : ''}><i>{index < current ? <Check size={12} /> : index + 1}</i><span>{step}</span>{index < steps.length - 1 && <b />}</div>)}
+        {steps.map((step, index) => <div key={step} className={index < current ? 'done' : index === current ? 'current' : ''}><i>{index < current ? <Check size={12} /> : index + 1}</i><span>{step}</span>{index < steps.length - 1 && <b />}</div>)}
       </div>
     </div>
   )
@@ -183,10 +185,12 @@ function FlowHeader({ current, booking }: { current: number; booking: BookingSta
 
 export function FlightsView({ booking, setBooking, onContinue, notify }: SharedProps & { onContinue: () => void }) {
   const [searched, setSearched] = useState(true)
+  const [sort, setSort] = useState<'recommended' | 'price' | 'departure'>('recommended')
+  const visibleFlights = [...flights].sort((a, b) => sort === 'price' ? a.price - b.price : sort === 'departure' ? a.departure.localeCompare(b.departure) : a.id - b.id)
   return (
     <>
       <FlowHeader current={1} booking={booking} />
-      <section className="booking-search panel">
+      <section className="booking-search panel flight-search-panel">
         <div className="section-title"><div><p className="eyebrow">Подберите удобный рейс</p><h3>Авиабилеты</h3></div><span className="powered-note">Цены демонстрационные</span></div>
         <div className="flight-form">
           <label><span>Откуда</span><div><Navigation size={16} /><input value={booking.origin} onChange={(e) => setBooking({ ...booking, origin: e.target.value })} /></div></label>
@@ -198,10 +202,10 @@ export function FlightsView({ booking, setBooking, onContinue, notify }: SharedP
         </div>
       </section>
 
-      {searched && <section className="results-section">
-        <div className="results-heading"><div><p className="eyebrow">Лучшие варианты</p><h3>{booking.origin} → {booking.destination}</h3></div><span>3 рейса · туда и обратно</span></div>
+      {searched && <section className="results-section flight-results-section">
+        <div className="results-heading"><div><p className="eyebrow">НАЙДЕННЫЕ ВАРИАНТЫ</p><h3>{booking.origin} → {booking.destination}</h3></div><label className="flight-sort">Сортировка<select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)}><option value="recommended">Рекомендуемые</option><option value="price">Сначала дешевле</option><option value="departure">По времени вылета</option></select></label></div>
         <div className="flight-list">
-          {flights.map((flight, index) => {
+          {visibleFlights.map((flight, index) => {
             const selected = booking.flight?.id === flight.id
             return <article className={`flight-card ${selected ? 'selected' : ''}`} key={flight.id}>
               {index === 0 && <span className="best-badge">Оптимальный</span>}
@@ -218,17 +222,31 @@ export function FlightsView({ booking, setBooking, onContinue, notify }: SharedP
 }
 
 export function HotelsView({ booking, setBooking, onBack, onContinue, notify }: SharedProps & { onBack: () => void; onContinue: () => void }) {
+  const [sort, setSort] = useState<'recommended' | 'price' | 'rating'>('recommended')
+  const [district, setDistrict] = useState('Все районы')
+  const [amenity, setAmenity] = useState('Любые удобства')
+  const nights = Math.max(1, Math.round((new Date(`${booking.endDate}T12:00:00`).getTime() - new Date(`${booking.startDate}T12:00:00`).getTime()) / 86400000))
+  const visibleHotels = hotels
+    .filter((hotel) => district === 'Все районы' || hotel.district === district)
+    .filter((hotel) => amenity === 'Любые удобства' || hotel.amenities.includes(amenity))
+    .sort((a, b) => sort === 'price' ? a.price - b.price : sort === 'rating' ? b.rating - a.rating : a.id - b.id)
   return (
     <>
       <FlowHeader current={2} booking={booking} />
       <section className="results-section hotel-section">
-        <div className="results-heading"><div><p className="eyebrow">Где остановиться</p><h3>Отели в городе {booking.destination.split(',')[0]}</h3></div><span>{formatDate(booking.startDate)} — {formatDate(booking.endDate)} · 7 ночей</span></div>
+        <div className="results-heading"><div><p className="eyebrow">ПОДБЕРИТЕ МЕСТО ДЛЯ ОТДЫХА</p><h3>Отели в {booking.destination.split(',')[0]}</h3><span className="hotel-stay-dates">{formatDate(booking.startDate)} — {formatDate(booking.endDate)} · {nights} ночей</span></div></div>
+        <div className="hotel-filters">
+          <label className="hotel-filter featured-filter">Сортировка<select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)}><option value="recommended">Рекомендуемые</option><option value="price">Сначала дешевле</option><option value="rating">По рейтингу</option></select></label>
+          <label className="hotel-filter">Район<select value={district} onChange={(event) => setDistrict(event.target.value)}><option>Все районы</option><option>Центр</option><option>Навона</option><option>Монти</option></select></label>
+          <label className="hotel-filter">Удобства<select value={amenity} onChange={(event) => setAmenity(event.target.value)}><option>Любые удобства</option><option>Wi-Fi</option><option>Завтрак</option><option>Фитнес</option><option>Терраса</option><option>Кондиционер</option></select></label>
+        </div>
         <div className="hotel-grid">
-          {hotels.map((hotel) => {
+          {visibleHotels.map((hotel) => {
             const selected = booking.hotel?.id === hotel.id
             return <article className={`hotel-card ${selected ? 'selected' : ''}`} key={hotel.id}>
-              <div className={`hotel-photo photo-${hotel.imagePosition}`} style={{ backgroundImage: `url(${hotelSheet})` }}><span><Star size={13} fill="currentColor" />{hotel.rating}</span>{selected && <i><Check size={16} />Выбран</i>}</div>
-              <div className="hotel-body"><p className="hotel-reviews">Превосходно · {hotel.reviews} отзывов</p><h4>{hotel.name}</h4><p className="hotel-address"><MapPin size={14} />{hotel.address}</p><div className="hotel-price"><div><strong>{hotel.price.toLocaleString('ru-RU')} ₽</strong><span>за ночь · {hotel.total.toLocaleString('ru-RU')} ₽ всего</span></div><button onClick={() => { setBooking({ ...booking, hotel }); notify(`${hotel.name} добавлен в поездку`) }}>{selected ? 'Выбрано' : 'Выбрать'}</button></div><a href="https://www.booking.com/" target="_blank" rel="noreferrer">Подробнее / Забронировать <ExternalLink size={13} /></a></div>
+              <div className={`hotel-photo photo-${hotel.imagePosition}`} style={{ backgroundImage: `url(${hotelSheet})` }} aria-label={`Фотография отеля ${hotel.name}`} />
+              <div className="hotel-body"><div className="hotel-title-line"><div><h4>{hotel.name}</h4><div className="hotel-stars" aria-label={`Рейтинг ${hotel.rating} из 5`}>{Array.from({ length: 5 }, (_, index) => <Star key={index} size={13} fill={index < Math.round(hotel.rating) ? 'currentColor' : 'none'} />)}</div></div><span className="hotel-score">{hotel.rating.toFixed(1)}</span></div><p className="hotel-reviews">Превосходно · {hotel.reviews} отзывов</p><p className="hotel-address"><MapPin size={14} />{hotel.address}</p><p className="hotel-description">Уютный отель с удобным расположением для прогулок по историческому центру.</p><div className="hotel-amenities">{hotel.amenities.map((item) => <span key={item}>{item}</span>)}</div></div>
+              <div className="hotel-price"><div><strong>{hotel.price.toLocaleString('ru-RU')} ₽</strong><span>за ночь · всего {hotel.total.toLocaleString('ru-RU')} ₽</span></div><button onClick={() => { setBooking({ ...booking, hotel }); notify(`${hotel.name} добавлен в поездку`) }}>{selected ? <><Check size={14} />Выбран</> : 'Выбрать отель'}</button><a href="https://www.booking.com/" target="_blank" rel="noreferrer" aria-label={`Забронировать ${hotel.name}`}><ExternalLink size={15} /></a></div>
             </article>
           })}
         </div>

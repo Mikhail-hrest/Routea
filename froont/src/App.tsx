@@ -30,11 +30,11 @@ import {
   UserRound,
 } from 'lucide-react'
 import { FlightsView, HotelsView, TripWorkspace, type BookingState, defaultBooking } from './TripPlanner'
-import { AuthPage, ProfilePage, TripsPage, TripDetailsIntro } from './AccountPages'
+import { AuthPage, ProfilePage, SettingsPage, TripsPage, TripDetailsIntro } from './AccountPages'
 import { ApiError, frontendApi, type TripRecord, type User } from './services/frontendApi'
 import romeHotels from './assets/rome-hotels.png'
 
-type NavKey = 'overview' | 'trips' | 'flights' | 'hotels' | 'places' | 'budget' | 'profile'
+type NavKey = 'overview' | 'trips' | 'flights' | 'hotels' | 'places' | 'budget' | 'profile' | 'settings'
 
 const navItems: { key: NavKey; label: string; icon: typeof Home }[] = [
   { key: 'trips', label: 'Мои поездки', icon: Map },
@@ -173,6 +173,7 @@ function App() {
       return
     }
     if (path === '/profile') setActiveNav('profile')
+    else if (path === '/settings') setActiveNav('settings')
     else if (path.startsWith('/trips')) setActiveNav('trips')
     else if (path === '/flights') setActiveNav('flights')
     else if (path === '/hotels') setActiveNav('hotels')
@@ -194,7 +195,7 @@ function App() {
   }, [location.pathname, navigate, selectedTrip?.id, user])
 
   const routeForNav: Record<NavKey, string> = {
-    overview: '/', trips: '/trips', flights: '/flights', hotels: '/hotels', places: '/places', budget: '/budget', profile: '/profile',
+    overview: '/', trips: '/trips', flights: '/flights', hotels: '/hotels', places: '/places', budget: '/budget', profile: '/profile', settings: '/settings',
   }
 
   const navigateTo = (key: NavKey) => {
@@ -270,7 +271,7 @@ function App() {
           <p>Сохраняйте места и собирайте свой идеальный маршрут.</p>
         </div>
         <nav className="secondary-nav">
-          <button onClick={() => notify('Настройки откроются в следующей версии')}><Settings size={18} />Настройки</button>
+          <button className={activeNav === 'settings' ? 'active' : ''} onClick={() => navigateTo('settings')}><Settings size={18} />Настройки</button>
           <button onClick={() => notify('Мы рядом, если нужна помощь')}><CircleHelp size={18} />Помощь</button>
         </nav>
         <div className="profile-mini">
@@ -351,7 +352,9 @@ function App() {
                 <div className="overview-expense-total"><span>Потрачено</span><strong>{spent.toLocaleString('ru-RU')} ₽ из {budget.toLocaleString('ru-RU')} ₽</strong></div>
               </section>
             </div>
-          </section> : activeNav === 'profile' ? (
+          </section> : activeNav === 'settings' ? (
+            <SettingsPage user={user} onUserUpdate={setUser} />
+          ) : activeNav === 'profile' ? (
             <ProfilePage user={user} />
           ) : activeNav === 'trips' ? (
             location.pathname.match(/^\/trips\/[^/]+$/) && selectedTrip ? (

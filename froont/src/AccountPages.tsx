@@ -6,15 +6,20 @@ import {
   CalendarDays,
   Check,
   Compass,
+  Bell,
   Eye,
   EyeOff,
+  CircleDollarSign,
   KeyRound,
   LockKeyhole,
+  Moon,
   Mail,
   MapPin,
   Plus,
+  Save,
   Plane,
   ShieldCheck,
+  Sun,
   Utensils,
   UserRound,
   WalletCards,
@@ -153,7 +158,100 @@ export function ProfilePage({ user }: { user: User }) {
       <div className="page-heading"><div><p className="eyebrow coral-text">Личный кабинет</p><h1>Мой профиль</h1><p>Основные данные вашего аккаунта Routea.</p></div></div>
       <div className="profile-layout">
         <article className="profile-identity panel"><div className="profile-avatar-large">{initials}</div><h2>{user.name}</h2><p>{user.email}</p><span><ShieldCheck />Аккаунт защищён</span></article>
-        <article className="profile-details panel"><div className="section-title"><div><p className="eyebrow">Персональные данные</p><h3>Основная информация</h3></div></div><dl><div><dt><UserRound />Имя</dt><dd>{user.name}</dd></div><div><dt><Mail />Email</dt><dd>{user.email}</dd></div><div><dt><CalendarDays />Дата регистрации</dt><dd>{registered}</dd></div></dl><p className="profile-note"><LockKeyhole />Эти данные доступны только вам. Изменение профиля будет подключено вместе с API.</p></article>
+        <article className="profile-details panel"><div className="section-title"><div><p className="eyebrow">Персональные данные</p><h3>Основная информация</h3></div></div><dl><div><dt><UserRound />Имя</dt><dd>{user.name}</dd></div><div><dt><Mail />Email</dt><dd>{user.email}</dd></div><div><dt><CalendarDays />Дата регистрации</dt><dd>{registered}</dd></div></dl></article>
+      </div>
+    </section>
+  )
+}
+
+type SettingsState = {
+  theme: 'light' | 'dark'
+  currency: 'RUB' | 'EUR' | 'USD'
+  notifications: { trip: boolean; flights: boolean; budget: boolean }
+}
+
+const SETTINGS_KEY = 'routea_preferences'
+const defaultSettings: SettingsState = {
+  theme: 'light', currency: 'RUB', notifications: { trip: true, flights: true, budget: false },
+}
+
+function loadSettings(): SettingsState {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<SettingsState>
+    return {
+      ...defaultSettings,
+      ...saved,
+      notifications: { ...defaultSettings.notifications, ...saved.notifications },
+    }
+  } catch {
+    return defaultSettings
+  }
+}
+
+export function SettingsPage({ user, onUserUpdate }: { user: User; onUserUpdate: (user: User) => void }) {
+  const [settings, setSettings] = useState<SettingsState>(loadSettings)
+  const [name, setName] = useState(user.name)
+  const [email, setEmail] = useState(user.email)
+  const [profileMessage, setProfileMessage] = useState('')
+
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+    document.documentElement.dataset.theme = settings.theme
+  }, [settings])
+
+  const updateNotification = (key: keyof SettingsState['notifications'], value: boolean) => {
+    setSettings((current) => ({ ...current, notifications: { ...current.notifications, [key]: value } }))
+  }
+
+  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const trimmedName = name.trim()
+    const normalizedEmail = email.trim().toLowerCase()
+    if (trimmedName.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setProfileMessage('Проверьте имя и адрес электронной почты.')
+      return
+    }
+    onUserUpdate({ ...user, name: trimmedName, email: normalizedEmail })
+    setProfileMessage('Данные обновлены в текущем сеансе. Для сохранения на сервере нужно подключить API профиля.')
+  }
+
+  return (
+    <section className="account-page settings-page">
+      <div className="page-heading"><div><p className="eyebrow coral-text">Персонализация</p><h1>Настройки</h1><p>Настройте Routea под себя.</p></div></div>
+      <div className="settings-grid">
+        <section className="panel settings-panel">
+          <div className="settings-panel-heading"><span><Sun /></span><div><h2>Внешний вид</h2><p>Выберите тему приложения.</p></div></div>
+          <div className="theme-options">
+            <button type="button" className={settings.theme === 'light' ? 'selected' : ''} onClick={() => setSettings({ ...settings, theme: 'light' })}><Sun />Светлая</button>
+            <button type="button" className={settings.theme === 'dark' ? 'selected' : ''} onClick={() => setSettings({ ...settings, theme: 'dark' })}><Moon />Тёмная</button>
+          </div>
+        </section>
+
+        <section className="panel settings-panel">
+          <div className="settings-panel-heading"><span><CircleDollarSign /></span><div><h2>Валюта</h2><p>Валюта для планирования новых расходов.</p></div></div>
+          <label className="settings-select-label">Основная валюта
+            <select value={settings.currency} onChange={(event) => setSettings({ ...settings, currency: event.target.value as SettingsState['currency'] })}>
+              <option value="RUB">Российский рубль (₽)</option><option value="EUR">Евро (€)</option><option value="USD">Доллар США ($)</option>
+            </select>
+          </label>
+        </section>
+
+        <section className="panel settings-panel settings-notifications">
+          <div className="settings-panel-heading"><span><Bell /></span><div><h2>Уведомления</h2><p>Выберите, о чём Routea должна напоминать.</p></div></div>
+          <label className="settings-toggle"><span><strong>Напоминания о поездке</strong><small>Перед началом путешествия</small></span><input type="checkbox" checked={settings.notifications.trip} onChange={(event) => updateNotification('trip', event.target.checked)} /><i /></label>
+          <label className="settings-toggle"><span><strong>Информация о рейсах</strong><small>Вылет и изменения расписания</small></span><input type="checkbox" checked={settings.notifications.flights} onChange={(event) => updateNotification('flights', event.target.checked)} /><i /></label>
+          <label className="settings-toggle"><span><strong>Контроль бюджета</strong><small>Когда расходы приблизятся к лимиту</small></span><input type="checkbox" checked={settings.notifications.budget} onChange={(event) => updateNotification('budget', event.target.checked)} /><i /></label>
+        </section>
+
+        <section className="panel settings-panel settings-profile">
+          <div className="settings-panel-heading"><span><UserRound /></span><div><h2>Данные профиля</h2><p>Имя и email, указанные в аккаунте.</p></div></div>
+          <form onSubmit={saveProfile}>
+            <label>Имя<input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required /></label>
+            <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+            <button className="primary-action" type="submit"><Save />Сохранить данные</button>
+            {profileMessage && <p className="settings-hint" role="status">{profileMessage}</p>}
+          </form>
+        </section>
       </div>
     </section>
   )
