@@ -3,14 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   Bell,
-  CalendarDays,
   ChevronDown,
-  ChevronRight,
   CircleHelp,
   Compass,
   CreditCard,
   Ellipsis,
-  Fuel,
+  Heart,
   Plane,
   Building2,
   Home,
@@ -21,7 +19,6 @@ import {
   MapPin,
   Menu,
   Plus,
-  Search,
   Settings,
   ShoppingBag,
   Sparkles,
@@ -35,6 +32,7 @@ import {
 import { FlightsView, HotelsView, TripWorkspace, type BookingState, defaultBooking } from './TripPlanner'
 import { AuthPage, ProfilePage, TripsPage, TripDetailsIntro } from './AccountPages'
 import { ApiError, frontendApi, type TripRecord, type User } from './services/frontendApi'
+import romeHotels from './assets/rome-hotels.png'
 
 type NavKey = 'overview' | 'trips' | 'flights' | 'hotels' | 'places' | 'budget' | 'profile'
 
@@ -90,16 +88,46 @@ const expenses = [
   { label: 'Развлечения', value: 12000, color: '#71956c', icon: Ticket },
 ]
 
+const destinationOptions = [
+  { city: 'Москва', country: 'Россия' },
+  { city: 'Санкт-Петербург', country: 'Россия' },
+  { city: 'Казань', country: 'Россия' },
+  { city: 'Сочи', country: 'Россия' },
+  { city: 'Калининград', country: 'Россия' },
+  { city: 'Владивосток', country: 'Россия' },
+  { city: 'Рим', country: 'Италия' },
+  { city: 'Милан', country: 'Италия' },
+  { city: 'Венеция', country: 'Италия' },
+  { city: 'Флоренция', country: 'Италия' },
+  { city: 'Париж', country: 'Франция' },
+  { city: 'Ницца', country: 'Франция' },
+  { city: 'Барселона', country: 'Испания' },
+  { city: 'Мадрид', country: 'Испания' },
+  { city: 'Лиссабон', country: 'Португалия' },
+  { city: 'Стамбул', country: 'Турция' },
+  { city: 'Анталья', country: 'Турция' },
+  { city: 'Дубай', country: 'ОАЭ' },
+  { city: 'Тбилиси', country: 'Грузия' },
+  { city: 'Ереван', country: 'Армения' },
+  { city: 'Токио', country: 'Япония' },
+  { city: 'Сеул', country: 'Южная Корея' },
+  { city: 'Прага', country: 'Чехия' },
+  { city: 'Берлин', country: 'Германия' },
+  { city: 'Вена', country: 'Австрия' },
+  { city: 'Будапешт', country: 'Венгрия' },
+  { city: 'Амстердам', country: 'Нидерланды' },
+  { city: 'Лондон', country: 'Великобритания' },
+]
+
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const [activeNav, setActiveNav] = useState<NavKey>('overview')
-  const [activeDay, setActiveDay] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [destinationSuggestionsOpen, setDestinationSuggestionsOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [tripName, setTripName] = useState('')
-  const [search, setSearch] = useState('')
   const [booking, setBooking] = useState<BookingState>(defaultBooking)
   const [user, setUser] = useState<User | null | undefined>(undefined)
   const [selectedTrip, setSelectedTrip] = useState<TripRecord | null>(null)
@@ -109,7 +137,13 @@ function App() {
 
   const spent = useMemo(() => expenses.reduce((sum, item) => sum + item.value, 0), [])
   const budget = 180000
-  const percent = Math.round((spent / budget) * 100)
+  const matchingDestinations = useMemo(() => {
+    const query = booking.destination.trim().toLocaleLowerCase('ru-RU')
+    if (!query) return []
+    return destinationOptions
+      .filter(({ city, country }) => `${city} ${country}`.toLocaleLowerCase('ru-RU').includes(query))
+      .slice(0, 6)
+  }, [booking.destination])
 
   const notify = (message: string) => {
     setToast(message)
@@ -201,15 +235,13 @@ function App() {
   if (!user) return <AuthPage initialMode={location.pathname === '/register' ? 'register' : 'login'} onModeChange={(mode) => navigate(`/${mode}`)} onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); navigate('/', { replace: true }) }} />
 
   const initials = user.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
-  const firstName = user.name.split(/\s+/)[0]
 
   return (
     <div className="app-shell">
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <button className="mobile-close" aria-label="Закрыть меню" onClick={() => setSidebarOpen(false)}><X /></button>
         <div className="brand">
-          <div className="brand-mark"><Compass size={22} /></div>
-          <span>маршрут</span>
+          <span>ROUTEA</span>
         </div>
 
         <nav className="main-nav" aria-label="Главная навигация">
@@ -249,117 +281,73 @@ function App() {
       <main>
         <header className="topbar">
           <button className="menu-button" aria-label="Открыть меню" onClick={() => setSidebarOpen(true)}><Menu /></button>
-          <div className="mobile-brand">маршрут</div>
-          <div className="search-wrap">
-            <Search size={18} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти поездку или место..." />
-            <kbd>⌘ K</kbd>
-          </div>
+          <div className="mobile-brand">ROUTEA</div>
           <button className="icon-button notification" aria-label="Уведомления" onClick={() => notify('Новых уведомлений нет')}><Bell size={20} /><i /></button>
           <button className="create-button" onClick={() => { setTripError(''); setModalOpen(true) }}><Plus size={19} />Новая поездка</button>
         </header>
 
-        <div className={`content ${activeNav !== 'overview' ? 'feature-content' : ''}`}>
-          {activeNav === 'overview' ? <>
-          <section className="welcome-row">
-            <div>
-              <p className="eyebrow coral-text">Воскресенье, 27 сентября</p>
-              <h1>Добрый день, {firstName} <span>✦</span></h1>
-              <p>Следующее приключение уже совсем близко.</p>
-            </div>
-            <div className="weather-pill"><span className="sun">☀</span><div><strong>+24°</strong><small>Рим, ясно</small></div></div>
-          </section>
+        <div className={`content ${activeNav !== 'overview' ? 'feature-content' : 'overview-content'}`}>
+          {activeNav === 'overview' ? <section className="travel-overview">
+            <header className="overview-heading">
+              <h1>Мои путешествия</h1>
+            </header>
 
-          <section className="trip-hero">
-            <div className="hero-copy">
-              <div className="hero-topline"><span className="status-dot" />БЛИЖАЙШАЯ ПОЕЗДКА <button aria-label="Действия"><Ellipsis /></button></div>
-              <h2>Итальянские<br />каникулы</h2>
-              <p className="destination"><MapPin size={17} />Рим, Италия</p>
-              <div className="trip-facts">
-                <div><CalendarDays /><span><small>Даты</small><strong>12–19 октября</strong></span></div>
-                <div><Compass /><span><small>Длительность</small><strong>8 дней</strong></span></div>
-                <div><WalletCards /><span><small>Бюджет</small><strong>180 000 ₽</strong></span></div>
-              </div>
-              <button className="open-trip" onClick={() => navigateTo('trips')}>Открыть поездку <ArrowRight size={18} /></button>
-            </div>
-            <div className="hero-visual" aria-label="Иллюстрация итальянского путешествия">
-              <div className="sun-disc" />
-              <div className="cloud cloud-one" /><div className="cloud cloud-two" />
-              <div className="colosseum">
-                <div className="top-stone" />
-                <div className="arches">{Array.from({ length: 12 }).map((_, i) => <i key={i} />)}</div>
-                <div className="arches lower">{Array.from({ length: 10 }).map((_, i) => <i key={i} />)}</div>
-              </div>
-              <div className="cypress one" /><div className="cypress two" />
-              <div className="scooter">●<span>━</span>●</div>
-              <span className="hero-stamp">ROMA<br /><b>2026</b></span>
-            </div>
-          </section>
+            <div className="overview-layout">
+              <article className="overview-card next-trip-card">
+                <div className="overview-card-title"><h2>Ближайшая поездка</h2><button aria-label="Действия"><Ellipsis /></button></div>
+                <img src={romeHotels} alt="Вид на Рим" />
+                <div className="next-trip-copy">
+                  <h3>Рим</h3>
+                  <p>12–19 октября · 8 дней</p>
+                </div>
+                <div className="next-trip-facts">
+                  <span><Plane /><small>Маршрут</small><strong>8 дней</strong></span>
+                  <span><WalletCards /><small>Бюджет</small><strong>{budget.toLocaleString('ru-RU')} ₽</strong></span>
+                </div>
+                <button className="overview-primary" onClick={() => navigateTo('trips')}>Открыть поездку <ArrowRight /></button>
+              </article>
 
-          <section className="stats-grid">
-            <article><div className="stat-icon coral-bg"><Map size={20} /></div><div><small>Всего поездок</small><strong>12</strong><span>3 запланировано</span></div><ChevronRight /></article>
-            <article><div className="stat-icon blue-bg"><MapPin size={20} /></div><div><small>Сохранено мест</small><strong>47</strong><span>В 8 городах</span></div><ChevronRight /></article>
-            <article><div className="stat-icon yellow-bg"><Fuel size={20} /></div><div><small>Пройдено</small><strong>18 420 <em>км</em></strong><span>Почти полмира!</span></div><ChevronRight /></article>
-          </section>
+              <section className="overview-card overview-schedule">
+                <div className="overview-card-title"><h2>Октябрь 2025</h2><span>‹ &nbsp; ›</span></div>
+                {[
+                  { date: '12 окт', day: 'Вс', title: 'Вылет в Рим', note: 'Москва → Рим', icon: Plane },
+                  { date: '13 окт', day: 'Пн', title: 'Колизей', note: 'Экскурсия · 10:00', icon: Landmark },
+                  { date: '14 окт', day: 'Вт', title: 'Фонтан Треви', note: 'Прогулка', icon: MapPin },
+                  { date: '16 окт', day: 'Чт', title: 'Ватикан', note: 'Музеи · 11:00', icon: Ticket },
+                  { date: '19 окт', day: 'Вс', title: 'Обратный вылет', note: 'Рим → Москва', icon: Plane },
+                ].map((event) => <div className="schedule-row" key={event.date}>
+                  <time><strong>{event.date}</strong><small>{event.day}</small></time>
+                  <i />
+                  <event.icon />
+                  <span><strong>{event.title}</strong><small>{event.note}</small></span>
+                </div>)}
+              </section>
 
-          <div className="dashboard-grid">
-            <section className="panel route-panel">
-              <div className="section-title">
-                <div><p className="eyebrow">План путешествия</p><h3>Маршрут по дням</h3></div>
-                <button onClick={() => notify('Открыт полный маршрут')}>Весь маршрут <ArrowRight size={17} /></button>
-              </div>
-              <div className="day-tabs">
-                {itinerary.map((day, index) => <button key={day.day} className={activeDay === index ? 'active' : ''} onClick={() => setActiveDay(index)}><strong>{day.day}</strong><span>{day.date}</span></button>)}
-              </div>
-              <div className="day-heading"><span className={`day-number ${itinerary[activeDay].color}`}>0{activeDay + 1}</span><div><h4>{itinerary[activeDay].label}</h4><p>{itinerary[activeDay].items.length} места · около 7 часов</p></div><button aria-label="Добавить место" onClick={() => notify('Форма добавления места подготовлена')}><Plus /></button></div>
-              <div className="timeline">
-                {itinerary[activeDay].items.map((place, index) => (
-                  <article key={place.title}>
-                    <time>{place.time}</time>
-                    <div className="timeline-marker"><i />{index < itinerary[activeDay].items.length - 1 && <span />}</div>
-                    <div className="place-icon"><place.icon size={19} /></div>
-                    <div className="place-copy"><h5>{place.title}</h5><p><MapPin size={13} />{place.address}</p></div>
-                    <button aria-label="Действия с местом"><Ellipsis /></button>
-                  </article>
-                ))}
-              </div>
-            </section>
+              <section className="overview-card favorite-places">
+                <div className="overview-card-title"><h2>Избранные места</h2><button onClick={() => navigateTo('places')}>Смотреть все <ArrowRight /></button></div>
+                {[
+                  { name: 'Колизей', position: '12%' },
+                  { name: 'Фонтан Треви', position: '50%' },
+                  { name: 'Ватикан', position: '82%' },
+                ].map((place) => <button className="favorite-row" key={place.name} onClick={() => navigateTo('places')}>
+                  <span className="favorite-thumb" style={{ backgroundImage: `url(${romeHotels})`, backgroundPosition: `${place.position} center` }} />
+                  <span><strong>{place.name}</strong><small>Рим, Италия</small></span>
+                  <Heart />
+                </button>)}
+              </section>
 
-            <section className="panel budget-panel">
-              <div className="section-title">
-                <div><p className="eyebrow">Финансы поездки</p><h3>Бюджет</h3></div>
-                <button className="round-more" aria-label="Действия"><Ellipsis /></button>
-              </div>
-              <div className="budget-overview">
-                <div className="donut" style={{ '--value': `${percent * 3.6}deg` } as React.CSSProperties}><div><strong>{percent}%</strong><span>потрачено</span></div></div>
-                <div><small>Потрачено</small><strong>{spent.toLocaleString('ru-RU')} ₽</strong><small>из {budget.toLocaleString('ru-RU')} ₽</small></div>
-              </div>
-              <div className="remaining"><span><i />Осталось</span><strong>{(budget - spent).toLocaleString('ru-RU')} ₽</strong></div>
-              <div className="expense-list">
-                {expenses.map((expense) => (
-                  <div key={expense.label}>
-                    <span className="expense-icon" style={{ color: expense.color, background: `${expense.color}18` }}><expense.icon size={17} /></span>
-                    <span>{expense.label}</span>
-                    <strong>{expense.value.toLocaleString('ru-RU')} ₽</strong>
-                  </div>
-                ))}
-              </div>
-              <button className="add-expense" onClick={() => notify('Добавление расхода будет подключено к API')}><Plus size={18} />Добавить расход</button>
-            </section>
-          </div>
-
-          <section className="ideas-section">
-            <div className="section-title">
-              <div><p className="eyebrow">Вдохновение рядом</p><h3>Идеи для следующей поездки</h3></div>
-              <button onClick={() => notify('Показываем больше направлений')}>Смотреть все <ArrowRight size={17} /></button>
+              <section className="overview-card overview-expenses">
+                <div className="overview-card-title"><h2>Расходы</h2><button onClick={() => navigateTo('budget')}>Смотреть все <ArrowRight /></button></div>
+                {expenses.map((expense) => <div className="overview-expense-row" key={expense.label}>
+                  <expense.icon style={{ color: expense.color }} />
+                  <span>{expense.label}</span>
+                  <i><b style={{ width: `${Math.max(18, Math.round(expense.value / 680))}%`, background: expense.color }} /></i>
+                  <strong>{expense.value.toLocaleString('ru-RU')} ₽</strong>
+                </div>)}
+                <div className="overview-expense-total"><span>Потрачено</span><strong>{spent.toLocaleString('ru-RU')} ₽ из {budget.toLocaleString('ru-RU')} ₽</strong></div>
+              </section>
             </div>
-            <div className="idea-cards">
-              <article className="idea-card japan"><span>Весна · 10 дней</span><div><small>Япония</small><h4>Токио и Киото</h4></div><button aria-label="Сохранить"><Plus /></button></article>
-              <article className="idea-card turkey"><span>Выходные · 3 дня</span><div><small>Турция</small><h4>Стамбул</h4></div><button aria-label="Сохранить"><Plus /></button></article>
-              <article className="idea-card portugal"><span>Лето · 7 дней</span><div><small>Португалия</small><h4>Лиссабон</h4></div><button aria-label="Сохранить"><Plus /></button></article>
-            </div>
-          </section>
-          </> : activeNav === 'profile' ? (
+          </section> : activeNav === 'profile' ? (
             <ProfilePage user={user} />
           ) : activeNav === 'trips' ? (
             location.pathname.match(/^\/trips\/[^/]+$/) && selectedTrip ? (
@@ -383,7 +371,46 @@ function App() {
             <p className="eyebrow coral-text">Новое приключение</p>
             <h3>Куда отправимся?</h3>
             <label>Название поездки<input autoFocus required value={tripName} onChange={(e) => setTripName(e.target.value)} placeholder="Например, выходные в Казани" /></label>
-            <label>Город или страна назначения<input required value={booking.destination} onChange={(e) => setBooking({ ...booking, destination: e.target.value })} placeholder="Рим, Италия" /></label>
+            <div className="destination-field">
+              <label htmlFor="trip-destination">Город или страна назначения</label>
+              <div className="destination-autocomplete">
+                <input
+                  id="trip-destination"
+                  required
+                  value={booking.destination}
+                  onFocus={() => setDestinationSuggestionsOpen(true)}
+                  onBlur={() => window.setTimeout(() => setDestinationSuggestionsOpen(false), 120)}
+                  onChange={(event) => {
+                    setBooking({ ...booking, destination: event.target.value })
+                    setDestinationSuggestionsOpen(true)
+                  }}
+                  placeholder="Начните вводить город"
+                  autoComplete="off"
+                  role="combobox"
+                  aria-expanded={destinationSuggestionsOpen && booking.destination.trim().length > 0}
+                  aria-controls="destination-suggestions"
+                />
+                {destinationSuggestionsOpen && booking.destination.trim() && (
+                  <div className="destination-suggestions" id="destination-suggestions" role="listbox">
+                    {matchingDestinations.length > 0 ? matchingDestinations.map(({ city, country }) => (
+                      <button
+                        type="button"
+                        role="option"
+                        key={`${city}-${country}`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setBooking({ ...booking, destination: `${city}, ${country}` })
+                          setDestinationSuggestionsOpen(false)
+                        }}
+                      >
+                        <MapPin />
+                        <span><strong>{city}</strong><small>{country}</small></span>
+                      </button>
+                    )) : <p>Города не найдены</p>}
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="form-row"><label>Дата начала<input type="date" required value={booking.startDate} onChange={(e) => setBooking({ ...booking, startDate: e.target.value })} /></label><label>Дата окончания<input type="date" required value={booking.endDate} min={booking.startDate} onChange={(e) => setBooking({ ...booking, endDate: e.target.value })} /></label></div>
             <label>Планируемый бюджет<div className="input-suffix"><input type="number" min="0" required value={booking.budget} onChange={(e) => setBooking({ ...booking, budget: Number(e.target.value) })} /><span>₽</span></div></label>
             {tripError && <div className="form-message error" role="alert">{tripError}</div>}

@@ -1,4 +1,7 @@
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import L from 'leaflet'
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 import {
   ArrowLeft,
   ArrowRight,
@@ -51,8 +54,8 @@ export type NearbyPlace = {
   category: 'Достопримечательности' | 'Кафе' | 'Рестораны'
   distance: string
   note: string
-  x: number
-  y: number
+  lat: number
+  lon: number
   day?: number
 }
 
@@ -101,13 +104,60 @@ const hotels: HotelOption[] = [
 ]
 
 const nearby: NearbyPlace[] = [
-  { id: 1, title: 'Пантеон', category: 'Достопримечательности', distance: '450 м', note: 'Античный храм с крупнейшим неармированным куполом в мире.', x: 34, y: 28 },
-  { id: 2, title: 'Фонтан Треви', category: 'Достопримечательности', distance: '700 м', note: 'Знаменитый фонтан XVIII века в стиле барокко.', x: 65, y: 22 },
-  { id: 3, title: 'Sant’Eustachio Il Caffè', category: 'Кафе', distance: '320 м', note: 'Историческая кофейня с фирменным римским эспрессо.', x: 44, y: 58 },
-  { id: 4, title: 'Roscioli', category: 'Рестораны', distance: '600 м', note: 'Римская кухня, паста carbonara и небольшая энотека.', x: 24, y: 72 },
-  { id: 5, title: 'Giolitti', category: 'Кафе', distance: '520 м', note: 'Старейшая джелатерия рядом с площадью Монтечиторио.', x: 76, y: 64 },
-  { id: 6, title: 'Armando al Pantheon', category: 'Рестораны', distance: '480 м', note: 'Семейный ресторан с классической cucina romana.', x: 57, y: 82 },
+  { id: 1, title: 'Пантеон', category: 'Достопримечательности', distance: '450 м', note: 'Античный храм с крупнейшим неармированным куполом в мире.', lat: 41.8986, lon: 12.4769 },
+  { id: 2, title: 'Фонтан Треви', category: 'Достопримечательности', distance: '700 м', note: 'Знаменитый фонтан XVIII века в стиле барокко.', lat: 41.9009, lon: 12.4833 },
+  { id: 3, title: 'Sant’Eustachio Il Caffè', category: 'Кафе', distance: '320 м', note: 'Историческая кофейня с фирменным римским эспрессо.', lat: 41.8982, lon: 12.4751 },
+  { id: 4, title: 'Roscioli', category: 'Рестораны', distance: '600 м', note: 'Римская кухня, паста carbonara и небольшая энотека.', lat: 41.8959, lon: 12.4723 },
+  { id: 5, title: 'Giolitti', category: 'Кафе', distance: '520 м', note: 'Старейшая джелатерия рядом с площадью Монтечиторио.', lat: 41.9004, lon: 12.4806 },
+  { id: 6, title: 'Armando al Pantheon', category: 'Рестораны', distance: '480 м', note: 'Семейный ресторан с классической cucina romana.', lat: 41.8982, lon: 12.4769 },
 ]
+
+type Coordinates = [number, number]
+type OSMElement = { id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }
+
+function distanceInMeters(from: Coordinates, to: Coordinates) {
+  const radians = (degrees: number) => degrees * Math.PI / 180
+  const [lat1, lon1] = from.map(radians)
+  const [lat2, lon2] = to.map(radians)
+  const a = Math.sin((lat2 - lat1) / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2
+  return Math.round(6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+}
+
+function formatDistance(meters: number) {
+  return meters >= 1000 ? `${(meters / 1000).toFixed(1)} км` : `${meters} м`
+}
+
+function osmCategory(tags: Record<string, string>): NearbyPlace['category'] | null {
+  if (tags.amenity === 'cafe') return 'Кафе'
+  if (tags.amenity === 'restaurant' || tags.amenity === 'fast_food') return 'Рестораны'
+  if (tags.tourism || tags.historic || tags.leisure === 'park' || tags.leisure === 'garden' || tags.amenity === 'place_of_worship') return 'Достопримечательности'
+  return null
+}
+
+async function geocode(query: string, signal: AbortSignal): Promise<Coordinates | null> {
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`, { signal, headers: { 'Accept-Language': 'ru,en' } })
+  if (!response.ok) throw new Error('Не удалось найти город на карте')
+  const results = await response.json() as Array<{ lat: string; lon: string }>
+  return results[0] ? [Number(results[0].lat), Number(results[0].lon)] : null
+}
+
+function MapCenterUpdater({ center }: { center: Coordinates }) {
+  const map = useMap()
+  useEffect(() => { map.setView(center, map.getZoom() < 13 ? 15 : map.getZoom()) }, [center, map])
+  return null
+}
+
+function MapViewportReporter({ onMove }: { onMove: (center: Coordinates) => void }) {
+  const map = useMap()
+  useMapEvents({ moveend() { const center = map.getCenter(); onMove([center.lat, center.lng]) } })
+  return null
+}
+
+function mapPinIcon(kind: 'hotel' | 'place', selected = false) {
+  const className = kind === 'hotel' ? 'leaflet-hotel-pin' : `leaflet-place-pin${selected ? ' selected' : ''}`
+  const html = kind === 'hotel' ? '<span>⌂</span>' : ''
+  return L.divIcon({ className: 'routea-leaflet-icon', html: `<div class="${className}">${html}</div>`, iconSize: kind === 'hotel' ? [38, 38] : [42, 42], iconAnchor: kind === 'hotel' ? [19, 19] : [21, 21] })
+}
 
 function formatDate(value: string) {
   if (!value) return '—'
@@ -191,16 +241,100 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
   const [activeMarker, setActiveMarker] = useState<number | 'hotel'>(booking.hotel ? 'hotel' : 1)
   const [category, setCategory] = useState<'Все' | NearbyPlace['category']>('Все')
   const [workspaceTab, setWorkspaceTab] = useState(initialSection === 'budget' ? 'budget' : 'map')
-  const selectedPlace = typeof activeMarker === 'number' ? nearby.find((place) => place.id === activeMarker) : null
+  const [mapCenter, setMapCenter] = useState<Coordinates>([41.8986, 12.4769])
+  const [searchCenter, setSearchCenter] = useState<Coordinates>([41.8986, 12.4769])
+  const [hotelCoordinates, setHotelCoordinates] = useState<Coordinates | null>(null)
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>(nearby)
+  const [placesLoading, setPlacesLoading] = useState(false)
+  const [placesError, setPlacesError] = useState('')
+  const selectedPlace = typeof activeMarker === 'number' ? nearbyPlaces.find((place) => place.id === activeMarker) : null
   const flightCost = booking.flight?.price ?? 0
   const hotelCost = booking.hotel?.total ?? 0
   const planned = flightCost + hotelCost + booking.otherExpenses
   const remaining = booking.budget - planned
-  const filtered = category === 'Все' ? nearby : nearby.filter((place) => place.category === category)
+  const filtered = category === 'Все' ? nearbyPlaces : nearbyPlaces.filter((place) => place.category === category)
+  const routePoints: Coordinates[] = booking.hotel && booking.places.length > 0
+    ? [hotelCoordinates ?? mapCenter, ...booking.places.map((place) => [place.lat, place.lon] as Coordinates)]
+    : []
+
+  useEffect(() => {
+    const controller = new AbortController()
+    let cancelled = false
+    async function locateTrip() {
+      try {
+        const cityCenter = await geocode(booking.destination, controller.signal)
+        if (!cityCenter) throw new Error('Город не найден. Уточните название назначения.')
+        let hotelCenter: Coordinates | null = null
+        if (booking.hotel) {
+          try { hotelCenter = await geocode(`${booking.hotel.address}, ${booking.destination}`, controller.signal) } catch { /* Если адрес отеля не найден, используем центр города. */ }
+        }
+        if (cancelled) return
+        const center = hotelCenter ?? cityCenter
+        setMapCenter(center)
+        setSearchCenter(center)
+        setHotelCoordinates(hotelCenter)
+        setActiveMarker(booking.hotel ? 'hotel' : 1)
+        setPlacesError('')
+      } catch (error) {
+        if (!cancelled && !controller.signal.aborted) setPlacesError(error instanceof Error ? error.message : 'Не удалось найти город на карте.')
+      }
+    }
+    locateTrip()
+    return () => { cancelled = true; controller.abort() }
+  }, [booking.destination, booking.hotel?.id, booking.hotel?.address])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setPlacesLoading(true)
+      setPlacesError('')
+      const [lat, lon] = searchCenter
+      const query = `[out:json][timeout:20];(nwr(around:2500,${lat},${lon})[tourism~"attraction|museum|gallery|viewpoint|artwork|zoo|theme_park"];nwr(around:2500,${lat},${lon})[historic];nwr(around:2500,${lat},${lon})[amenity~"cafe|restaurant|fast_food|place_of_worship"];nwr(around:2500,${lat},${lon})[leisure~"park|garden"]);out center tags;`
+      try {
+        const response = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query, signal: controller.signal })
+        if (!response.ok) throw new Error('Сервис карты временно недоступен')
+        const data = await response.json() as { elements: OSMElement[] }
+        const center: Coordinates = hotelCoordinates ?? searchCenter
+        const unique = new Map<string, NearbyPlace>()
+        for (const element of data.elements) {
+          const tags = element.tags ?? {}
+          const title = tags.name?.trim()
+          const kind = osmCategory(tags)
+          const latValue = element.lat ?? element.center?.lat
+          const lonValue = element.lon ?? element.center?.lon
+          if (!title || !kind || latValue === undefined || lonValue === undefined) continue
+          const key = `${title.toLocaleLowerCase()}-${kind}`
+          if (unique.has(key)) continue
+          const meters = distanceInMeters(center, [latValue, lonValue])
+          unique.set(key, {
+            id: element.id,
+            title,
+            category: kind,
+            distance: formatDistance(meters),
+            note: tags.description ?? tags.cuisine ?? tags.historic ?? tags.tourism ?? 'Место отмечено на OpenStreetMap.',
+            lat: latValue,
+            lon: lonValue,
+          })
+        }
+        const places = [...unique.values()].sort((a, b) => distanceInMeters(center, [a.lat, a.lon]) - distanceInMeters(center, [b.lat, b.lon]))
+        setNearbyPlaces(places)
+        if (!booking.hotel) setActiveMarker(places[0]?.id ?? 1)
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setPlacesError(error instanceof Error ? error.message : 'Не удалось загрузить места с карты.')
+          if (Math.abs(searchCenter[0] - 41.8986) < 0.2 && Math.abs(searchCenter[1] - 12.4769) < 0.2) setNearbyPlaces(nearby)
+        }
+      } finally {
+        if (!controller.signal.aborted) setPlacesLoading(false)
+      }
+    }, 650)
+    return () => { window.clearTimeout(timer); controller.abort() }
+  }, [searchCenter, hotelCoordinates, booking.hotel?.id])
 
   const addPlace = (place: NearbyPlace, day = 1) => {
     if (booking.places.some((item) => item.id === place.id)) {
-      notify('Это место уже есть в маршруте')
+      setBooking({ ...booking, places: booking.places.filter((item) => item.id !== place.id) })
+      notify(`${place.title} удалено из маршрута`)
       return
     }
     setBooking({ ...booking, places: [...booking.places, { ...place, day }] })
@@ -216,29 +350,42 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
 
       {workspaceTab === 'map' && <>
         {!booking.hotel && <div className="setup-alert"><Hotel /><div><strong>Сначала выберите отель</strong><span>Он станет центром карты, а мы покажем интересные места поблизости.</span></div><button onClick={onFindHotels}>Выбрать отель</button></div>}
+        <div className="map-explorer-layout">
         <section className="city-map panel">
-          <div className="map-toolbar"><div><p className="eyebrow">Интерактивная карта</p><h3>{booking.destination.split(',')[0]} рядом с отелем</h3></div><span><Navigation size={14} />Радиус 1 км</span></div>
+          <div className="map-toolbar"><div><p className="eyebrow">Интерактивная карта</p><h3>{booking.destination.split(',')[0]} рядом с отелем</h3></div><span><Navigation size={14} />Места в радиусе 2,5 км · OpenStreetMap</span></div>
           <div className="map-canvas">
-            <div className="river" />
-            {Array.from({ length: 7 }).map((_, index) => <i className={`road road-${index + 1}`} key={index} />)}
-            {booking.hotel && <button className={`map-marker hotel-marker ${activeMarker === 'hotel' ? 'active' : ''}`} style={{ left: '50%', top: '44%' }} onClick={() => setActiveMarker('hotel')}><BedDouble size={18} /><b>Ваш отель</b></button>}
-            {nearby.map((place) => <button key={place.id} className={`map-marker place-marker category-${place.category === 'Кафе' ? 'cafe' : place.category === 'Рестораны' ? 'food' : 'sight'} ${activeMarker === place.id ? 'active' : ''}`} style={{ left: `${place.x}%`, top: `${place.y}%` }} onClick={() => setActiveMarker(place.id)}>{place.category === 'Кафе' ? <Coffee /> : place.category === 'Рестораны' ? <Utensils /> : <Landmark />}</button>)}
+            <MapContainer center={mapCenter} zoom={15} scrollWheelZoom className="leaflet-map">
+              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <MapCenterUpdater center={mapCenter} />
+              <MapViewportReporter onMove={setSearchCenter} />
+              {routePoints.length > 1 && <Polyline positions={routePoints} pathOptions={{ color: '#df5539', weight: 4, opacity: 0.9 }} />}
+              {booking.hotel && <Marker position={hotelCoordinates ?? mapCenter} icon={mapPinIcon('hotel')} eventHandlers={{ click: () => setActiveMarker('hotel') }}>
+                <Popup><strong>{booking.hotel.name}</strong><br />Выбранный отель · точка старта маршрута</Popup>
+              </Marker>}
+              {nearbyPlaces.map((place) => {
+                const isSelected = booking.places.some((item) => item.id === place.id)
+                return <Marker key={place.id} position={[place.lat, place.lon]} icon={mapPinIcon('place', isSelected)} eventHandlers={{ click: () => setActiveMarker(place.id) }}>
+                  <Popup><div className="osm-popup"><small>{place.category} · {place.distance} от отеля</small><strong>{place.title}</strong><p>{place.note}</p><button onClick={() => addPlace(place)}>{isSelected ? 'Удалить из маршрута' : 'Добавить в маршрут'}</button></div></Popup>
+                </Marker>
+              })}
+            </MapContainer>
             <div className="map-info-card">
-              {activeMarker === 'hotel' && booking.hotel ? <><span className="map-info-icon hotel"><BedDouble /></span><div><small>Выбранный отель</small><strong>{booking.hotel.name}</strong><p>{booking.hotel.address}</p></div></> : selectedPlace ? <><span className="map-info-icon"><MapPin /></span><div><small>{selectedPlace.category} · {selectedPlace.distance} от отеля</small><strong>{selectedPlace.title}</strong><p>{selectedPlace.note}</p><button onClick={() => addPlace(selectedPlace)}>Добавить в маршрут <Plus size={13} /></button></div></> : null}
+              {activeMarker === 'hotel' && booking.hotel ? <><span className="map-info-icon hotel"><BedDouble /></span><div><small>Выбранный отель</small><strong>{booking.hotel.name}</strong><p>{booking.hotel.address}</p></div></> : selectedPlace ? <><span className="map-info-icon"><MapPin /></span><div><small>{selectedPlace.category} · {selectedPlace.distance} от отеля</small><strong>{selectedPlace.title}</strong><p>{selectedPlace.note}</p><button onClick={() => addPlace(selectedPlace)}>{booking.places.some((item) => item.id === selectedPlace.id) ? 'Удалить из маршрута' : 'Добавить в маршрут'} {booking.places.some((item) => item.id === selectedPlace.id) ? <Check size={13} /> : <Plus size={13} />}</button></div></> : null}
             </div>
-            <div className="map-legend"><span><i className="legend-hotel" />Отель</span><span><i className="legend-sight" />Места</span><span><i className="legend-food" />Еда</span></div>
           </div>
         </section>
 
         <section className="nearby-section">
-          <div className="results-heading"><div><p className="eyebrow">Исследуйте район</p><h3>Рядом с отелем</h3></div><span>Найдено 6 мест в радиусе 1 км</span></div>
+          <div className="results-heading"><div><p className="eyebrow">Исследуйте район</p><h3>Рядом с отелем</h3></div><span>{placesLoading ? 'Ищем места на карте…' : `Найдено ${nearbyPlaces.length} мест в радиусе 2,5 км`}</span></div>
+          {placesError && <p className="map-load-error">{placesError}. Проверьте подключение к интернету и попробуйте снова.</p>}
           <div className="category-tabs">{(['Все', 'Достопримечательности', 'Кафе', 'Рестораны'] as const).map((item) => <button className={category === item ? 'active' : ''} onClick={() => setCategory(item)} key={item}>{item}</button>)}</div>
           <div className="nearby-grid">{filtered.map((place) => {
             const added = booking.places.some((item) => item.id === place.id)
-            return <article key={place.id}><span className={`nearby-icon category-${place.category === 'Кафе' ? 'cafe' : place.category === 'Рестораны' ? 'food' : 'sight'}`}>{place.category === 'Кафе' ? <Coffee /> : place.category === 'Рестораны' ? <Utensils /> : <Landmark />}</span><div><small>{place.category}</small><h4>{place.title}</h4><p><Navigation size={12} />{place.distance} от отеля</p></div><button className={added ? 'added' : ''} onClick={() => addPlace(place)}>{added ? <Check /> : <Plus />}</button></article>
+            return <article key={place.id}><span className={`nearby-icon category-${place.category === 'Кафе' ? 'cafe' : place.category === 'Рестораны' ? 'food' : 'sight'}`}>{place.category === 'Кафе' ? <Coffee /> : place.category === 'Рестораны' ? <Utensils /> : <Landmark />}</span><div><small>{place.category}</small><h4>{place.title}</h4><p><Navigation size={12} />{place.distance} от отеля</p></div><button className={added ? 'added' : ''} aria-label={added ? `Удалить ${place.title} из маршрута` : `Добавить ${place.title} в маршрут`} title={added ? 'Удалить из маршрута' : 'Добавить в маршрут'} onClick={() => addPlace(place)}>{added ? <Check /> : <Plus />}</button></article>
           })}</div>
           <div className="flow-actions"><button className="secondary-action" onClick={onFindHotels}><ArrowLeft size={17} />К отелям</button><button className="primary-action" onClick={() => setWorkspaceTab('route')}>Составить маршрут <ArrowRight size={17} /></button></div>
         </section>
+        </div>
       </>}
 
       {workspaceTab === 'route' && <section className="route-builder panel">
