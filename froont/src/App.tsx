@@ -287,17 +287,7 @@ function App() {
             <div className="overview-photo" style={{ backgroundImage: `url(${amalfiCoast})` }} role="img" aria-label="Амальфитанское побережье Италии">
               <span className="overview-photo-kicker">МЕСТО ДЛЯ СЛЕДУЮЩЕЙ ИСТОРИИ</span>
               <div className="overview-photo-caption"><small>ИДЕЯ ДЛЯ ПОЕЗДКИ</small><strong>Амальфитанское побережье</strong><span>Италия · море, городки и дорога вдоль берега</span></div>
-              <div className="overview-photo-note"><span>ПУТЕШЕСТВИЕ В ROUTEA</span><strong>От первого решения<br />до готового плана</strong><i><b>Даты</b><b>Маршрут</b><b>Бюджет</b></i></div>
             </div>
-
-            <section className="overview-tools">
-              <div className="overview-section-heading"><div><p className="eyebrow">ВАШ ПЛАН — ВАШИ ПРАВИЛА</p><h2>Всё нужное для поездки</h2></div><p>От первых дат до последней прогулки.</p></div>
-              <div className="overview-feature-grid">
-                <button className="overview-feature-card" onClick={() => navigateTo('trips')}><span className="overview-feature-icon green"><Map /></span><small>01 · ПЛАН</small><strong>Поездки и маршруты</strong><p>Соберите места по дням и держите план под рукой.</p><span className="feature-link">Мои поездки <ArrowRight /></span></button>
-                <button className="overview-feature-card" onClick={() => navigateTo('flights')}><span className="overview-feature-icon coral"><Plane /></span><small>02 · ДОРОГА</small><strong>Билеты и отели</strong><p>Сравните варианты и сохраните выбранное в поездке.</p><span className="feature-link">Найти варианты <ArrowRight /></span></button>
-                <button className="overview-feature-card" onClick={() => navigateTo('budget')}><span className="overview-feature-icon ochre"><WalletCards /></span><small>03 · БЮДЖЕТ</small><strong>Расходы под контролем</strong><p>Планируйте затраты и понимайте, сколько останется.</p><span className="feature-link">Открыть бюджет <ArrowRight /></span></button>
-              </div>
-            </section>
 
             <section className="overview-process">
               <div><p className="eyebrow">ПРОСТО НАЧАТЬ</p><h2>От идеи до путешествия</h2></div>
