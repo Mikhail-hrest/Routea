@@ -736,7 +736,7 @@ body, body * { font-family: 'Inter', system-ui, sans-serif !important; }
 .main-nav button span { font-size: 12px; text-transform: uppercase; }
 .main-nav button > svg { display: none; }
 .secondary-nav { margin-left: 0; gap: 8px; }
-.profile-mini { margin-left: 2px; }
+.profile-mini { margin-left: -16px; }
 @media (max-width: 1050px) {
   .main-nav { position: static; transform: none; }
   .main-nav button { min-height: 38px; padding: 7px 8px; font-size: 10px; }

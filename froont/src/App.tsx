@@ -273,8 +273,7 @@ function App() {
         <div className={`content ${activeNav !== 'overview' ? 'feature-content' : 'overview-content'}`}>
           {activeNav === 'overview' ? <section className="routea-overview">
             <div className="overview-intro">
-              <p className="eyebrow coral-text">ПУТЕШЕСТВИЕ НАЧИНАЕТСЯ С ИДЕИ</p>
-              <h1>Все детали поездки —<br />в одном маршруте.</h1>
+              <h1>Все детали поездки -<br />в одном маршруте</h1>
               <p className="overview-lead">Routea собирает планы, билеты, отели и расходы в одном месте — чтобы вы меньше переключались между сервисами и больше думали о самом путешествии.</p>
             </div>
 
