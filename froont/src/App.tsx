@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   ChevronDown,
-  CircleHelp,
   Compass,
   CreditCard,
   Ellipsis,
@@ -232,8 +231,6 @@ function App() {
   if (user === undefined) return <div className="app-loading"><span><Compass /></span><p>Открываем Routea…</p></div>
   if (!user) return <AuthPage initialMode={location.pathname === '/register' ? 'register' : 'login'} onModeChange={(mode) => navigate(`/${mode}`)} onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); navigate('/', { replace: true }) }} />
 
-  const initials = user.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -266,11 +263,9 @@ function App() {
         </div>
         <nav className="secondary-nav" aria-label="Дополнительные разделы">
           <button className={activeNav === 'settings' ? 'active' : ''} aria-label="Настройки" title="Настройки" onClick={() => navigateTo('settings')}><Settings size={18} /></button>
-          <button aria-label="Помощь" title="Помощь" onClick={() => notify('Мы рядом, если нужна помощь')}><CircleHelp size={18} /></button>
         </nav>
         <div className="profile-mini">
-          <button className={`avatar ${activeNav === 'profile' ? 'profile-active' : ''}`} aria-label="Открыть профиль" aria-current={activeNav === 'profile' ? 'page' : undefined} onClick={() => navigateTo('profile')}>{initials}</button>
-          <button className={`profile-mini-copy ${activeNav === 'profile' ? 'profile-active' : ''}`} onClick={() => navigateTo('profile')}><strong>{user.name}</strong><span>{user.email}</span></button>
+          <button className={`avatar ${activeNav === 'profile' ? 'profile-active' : ''}`} aria-label="Открыть профиль" title="Профиль" aria-current={activeNav === 'profile' ? 'page' : undefined} onClick={() => navigateTo('profile')}><UserRound size={18} /></button>
         </div>
       </aside>
 
@@ -281,11 +276,9 @@ function App() {
               <p className="eyebrow coral-text">ПУТЕШЕСТВИЕ НАЧИНАЕТСЯ С ИДЕИ</p>
               <h1>Все детали поездки —<br />в одном маршруте.</h1>
               <p className="overview-lead">Routea собирает планы, билеты, отели и расходы в одном месте — чтобы вы меньше переключались между сервисами и больше думали о самом путешествии.</p>
-              <div className="overview-promise"><span>Один план поездки</span><i /><span>Все важные детали</span><i /><span>Бюджет под контролем</span></div>
             </div>
 
             <div className="overview-photo" style={{ backgroundImage: `url(${amalfiCoast})` }} role="img" aria-label="Амальфитанское побережье Италии">
-              <span className="overview-photo-kicker">МЕСТО ДЛЯ СЛЕДУЮЩЕЙ ИСТОРИИ</span>
               <div className="overview-photo-caption"><small>ИДЕЯ ДЛЯ ПОЕЗДКИ</small><strong>Амальфитанское побережье</strong><span>Италия · море, городки и дорога вдоль берега</span></div>
             </div>
 
