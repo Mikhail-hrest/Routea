@@ -731,9 +731,17 @@ body, body * { font-family: 'Inter', system-ui, sans-serif !important; }
 }
 
 .nav-create-button { flex: 0 0 auto; height: 36px; margin-left: auto; padding: 0 11px; border-radius: 5px; box-shadow: none; font-size: 10px; white-space: nowrap; }
+.main-nav { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.main-nav button { min-height: 42px; padding: 9px 13px; font-size: 12px; }
+.main-nav button span { font-size: 12px; text-transform: uppercase; }
 .main-nav button > svg { display: none; }
 .secondary-nav { margin-left: 0; gap: 8px; }
 .profile-mini { margin-left: 2px; }
+@media (max-width: 1050px) {
+  .main-nav { position: static; transform: none; }
+  .main-nav button { min-height: 38px; padding: 7px 8px; font-size: 10px; }
+  .main-nav button span { font-size: 10px; text-transform: uppercase; }
+}
 @media (max-width: 780px) {
   .nav-create-button { height: 32px; padding: 0 8px; font-size: 0; }
   .nav-create-button svg { width: 18px; }
