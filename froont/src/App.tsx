@@ -2,15 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
-  Bell,
-  CalendarDays,
   ChevronDown,
-  ChevronRight,
-  CircleHelp,
   Compass,
   CreditCard,
   Ellipsis,
-  Fuel,
+  Heart,
   Plane,
   Building2,
   Home,
@@ -19,9 +15,7 @@ import {
   LogOut,
   Map,
   MapPin,
-  Menu,
   Plus,
-  Search,
   Settings,
   ShoppingBag,
   Sparkles,
@@ -33,10 +27,12 @@ import {
   UserRound,
 } from 'lucide-react'
 import { FlightsView, HotelsView, TripWorkspace, type BookingState, defaultBooking } from './TripPlanner'
-import { AuthPage, ProfilePage, TripsPage, TripDetailsIntro } from './AccountPages'
+import { AuthPage, ProfilePage, SettingsPage, TripsPage, TripDetailsIntro } from './AccountPages'
 import { ApiError, frontendApi, type TripRecord, type User } from './services/frontendApi'
+import romeHotels from './assets/rome-hotels.png'
+import amalfiCoast from './assets/amalfi-coast.png'
 
-type NavKey = 'overview' | 'trips' | 'flights' | 'hotels' | 'places' | 'budget' | 'profile'
+type NavKey = 'overview' | 'trips' | 'flights' | 'hotels' | 'places' | 'budget' | 'profile' | 'settings'
 
 const navItems: { key: NavKey; label: string; icon: typeof Home }[] = [
   { key: 'overview', label: 'Обзор', icon: Home },
@@ -45,7 +41,6 @@ const navItems: { key: NavKey; label: string; icon: typeof Home }[] = [
   { key: 'hotels', label: 'Отели', icon: Building2 },
   { key: 'places', label: 'Избранные места', icon: MapPin },
   { key: 'budget', label: 'Бюджет', icon: WalletCards },
-  { key: 'profile', label: 'Профиль', icon: UserRound },
 ]
 
 const itinerary = [
@@ -90,16 +85,45 @@ const expenses = [
   { label: 'Развлечения', value: 12000, color: '#71956c', icon: Ticket },
 ]
 
+const destinationOptions = [
+  { city: 'Москва', country: 'Россия' },
+  { city: 'Санкт-Петербург', country: 'Россия' },
+  { city: 'Казань', country: 'Россия' },
+  { city: 'Сочи', country: 'Россия' },
+  { city: 'Калининград', country: 'Россия' },
+  { city: 'Владивосток', country: 'Россия' },
+  { city: 'Рим', country: 'Италия' },
+  { city: 'Милан', country: 'Италия' },
+  { city: 'Венеция', country: 'Италия' },
+  { city: 'Флоренция', country: 'Италия' },
+  { city: 'Париж', country: 'Франция' },
+  { city: 'Ницца', country: 'Франция' },
+  { city: 'Барселона', country: 'Испания' },
+  { city: 'Мадрид', country: 'Испания' },
+  { city: 'Лиссабон', country: 'Португалия' },
+  { city: 'Стамбул', country: 'Турция' },
+  { city: 'Анталья', country: 'Турция' },
+  { city: 'Дубай', country: 'ОАЭ' },
+  { city: 'Тбилиси', country: 'Грузия' },
+  { city: 'Ереван', country: 'Армения' },
+  { city: 'Токио', country: 'Япония' },
+  { city: 'Сеул', country: 'Южная Корея' },
+  { city: 'Прага', country: 'Чехия' },
+  { city: 'Берлин', country: 'Германия' },
+  { city: 'Вена', country: 'Австрия' },
+  { city: 'Будапешт', country: 'Венгрия' },
+  { city: 'Амстердам', country: 'Нидерланды' },
+  { city: 'Лондон', country: 'Великобритания' },
+]
+
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [activeNav, setActiveNav] = useState<NavKey>('overview')
-  const [activeDay, setActiveDay] = useState(0)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeNav, setActiveNav] = useState<NavKey>('trips')
   const [modalOpen, setModalOpen] = useState(false)
+  const [destinationSuggestionsOpen, setDestinationSuggestionsOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [tripName, setTripName] = useState('')
-  const [search, setSearch] = useState('')
   const [booking, setBooking] = useState<BookingState>(defaultBooking)
   const [user, setUser] = useState<User | null | undefined>(undefined)
   const [selectedTrip, setSelectedTrip] = useState<TripRecord | null>(null)
@@ -109,7 +133,13 @@ function App() {
 
   const spent = useMemo(() => expenses.reduce((sum, item) => sum + item.value, 0), [])
   const budget = 180000
-  const percent = Math.round((spent / budget) * 100)
+  const matchingDestinations = useMemo(() => {
+    const query = booking.destination.trim().toLocaleLowerCase('ru-RU')
+    if (!query) return []
+    return destinationOptions
+      .filter(({ city, country }) => `${city} ${country}`.toLocaleLowerCase('ru-RU').includes(query))
+      .slice(0, 6)
+  }, [booking.destination])
 
   const notify = (message: string) => {
     setToast(message)
@@ -134,13 +164,15 @@ function App() {
       navigate('/', { replace: true })
       return
     }
-    if (path === '/profile') setActiveNav('profile')
+    if (path === '/' || path === '/overview') setActiveNav('overview')
+    else if (path === '/profile') setActiveNav('profile')
+    else if (path === '/settings') setActiveNav('settings')
     else if (path.startsWith('/trips')) setActiveNav('trips')
     else if (path === '/flights') setActiveNav('flights')
     else if (path === '/hotels') setActiveNav('hotels')
     else if (path === '/places') setActiveNav('places')
     else if (path === '/budget') setActiveNav('budget')
-    else setActiveNav('overview')
+    else setActiveNav('trips')
 
     const tripId = path.match(/^\/trips\/([^/]+)$/)?.[1]
     if (tripId && selectedTrip?.id !== tripId) {
@@ -156,12 +188,11 @@ function App() {
   }, [location.pathname, navigate, selectedTrip?.id, user])
 
   const routeForNav: Record<NavKey, string> = {
-    overview: '/', trips: '/trips', flights: '/flights', hotels: '/hotels', places: '/places', budget: '/budget', profile: '/profile',
+    overview: '/', trips: '/trips', flights: '/flights', hotels: '/hotels', places: '/places', budget: '/budget', profile: '/profile', settings: '/settings',
   }
 
   const navigateTo = (key: NavKey) => {
     setActiveNav(key)
-    setSidebarOpen(false)
     setDetailPlanning(false)
     navigate(routeForNav[key])
   }
@@ -200,16 +231,11 @@ function App() {
   if (user === undefined) return <div className="app-loading"><span><Compass /></span><p>Открываем Routea…</p></div>
   if (!user) return <AuthPage initialMode={location.pathname === '/register' ? 'register' : 'login'} onModeChange={(mode) => navigate(`/${mode}`)} onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); navigate('/', { replace: true }) }} />
 
-  const initials = user.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
-  const firstName = user.name.split(/\s+/)[0]
-
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <button className="mobile-close" aria-label="Закрыть меню" onClick={() => setSidebarOpen(false)}><X /></button>
+      <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark"><Compass size={22} /></div>
-          <span>маршрут</span>
+          <span>ROUTEA</span>
         </div>
 
         <nav className="main-nav" aria-label="Главная навигация">
@@ -227,143 +253,46 @@ function App() {
           ))}
         </nav>
 
+        <button className="create-button nav-create-button" onClick={() => { setTripError(''); setModalOpen(true) }}><Plus size={18} />Новая поездка</button>
+
         <div className="sidebar-spacer" />
         <div className="journey-note">
           <div className="postcard-art"><span>✦</span></div>
           <strong>Путешествие начинается с идеи</strong>
           <p>Сохраняйте места и собирайте свой идеальный маршрут.</p>
         </div>
-        <nav className="secondary-nav">
-          <button onClick={() => notify('Настройки откроются в следующей версии')}><Settings size={18} />Настройки</button>
-          <button onClick={() => notify('Мы рядом, если нужна помощь')}><CircleHelp size={18} />Помощь</button>
+        <nav className="secondary-nav" aria-label="Дополнительные разделы">
+          <button className={activeNav === 'settings' ? 'active' : ''} aria-label="Настройки" title="Настройки" onClick={() => navigateTo('settings')}><Settings size={18} /></button>
         </nav>
         <div className="profile-mini">
-          <button className="avatar" aria-label="Открыть профиль" onClick={() => navigateTo('profile')}>{initials}</button>
-          <button className="profile-mini-copy" onClick={() => navigateTo('profile')}><strong>{user.name}</strong><span>{user.email}</span></button>
-          <button className="logout-button" onClick={logout}><LogOut size={16} /><span>Выйти из аккаунта</span></button>
+          <button className={`avatar ${activeNav === 'profile' ? 'profile-active' : ''}`} aria-label="Открыть профиль" title="Профиль" aria-current={activeNav === 'profile' ? 'page' : undefined} onClick={() => navigateTo('profile')}><UserRound size={18} /></button>
         </div>
       </aside>
 
-      {sidebarOpen && <button className="scrim" aria-label="Закрыть меню" onClick={() => setSidebarOpen(false)} />}
-
       <main>
-        <header className="topbar">
-          <button className="menu-button" aria-label="Открыть меню" onClick={() => setSidebarOpen(true)}><Menu /></button>
-          <div className="mobile-brand">маршрут</div>
-          <div className="search-wrap">
-            <Search size={18} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти поездку или место..." />
-            <kbd>⌘ K</kbd>
-          </div>
-          <button className="icon-button notification" aria-label="Уведомления" onClick={() => notify('Новых уведомлений нет')}><Bell size={20} /><i /></button>
-          <button className="create-button" onClick={() => { setTripError(''); setModalOpen(true) }}><Plus size={19} />Новая поездка</button>
-        </header>
-
-        <div className={`content ${activeNav !== 'overview' ? 'feature-content' : ''}`}>
-          {activeNav === 'overview' ? <>
-          <section className="welcome-row">
-            <div>
-              <p className="eyebrow coral-text">Воскресенье, 27 сентября</p>
-              <h1>Добрый день, {firstName} <span>✦</span></h1>
-              <p>Следующее приключение уже совсем близко.</p>
+        <div className={`content ${activeNav !== 'overview' ? 'feature-content' : 'overview-content'}`}>
+          {activeNav === 'overview' ? <section className="routea-overview">
+            <div className="overview-intro">
+              <h1>Все детали поездки -<br />в одном маршруте</h1>
+              <p className="overview-lead">Routea собирает планы, билеты, отели и расходы в одном месте — чтобы вы меньше переключались между сервисами и больше думали о самом путешествии.</p>
             </div>
-            <div className="weather-pill"><span className="sun">☀</span><div><strong>+24°</strong><small>Рим, ясно</small></div></div>
-          </section>
 
-          <section className="trip-hero">
-            <div className="hero-copy">
-              <div className="hero-topline"><span className="status-dot" />БЛИЖАЙШАЯ ПОЕЗДКА <button aria-label="Действия"><Ellipsis /></button></div>
-              <h2>Итальянские<br />каникулы</h2>
-              <p className="destination"><MapPin size={17} />Рим, Италия</p>
-              <div className="trip-facts">
-                <div><CalendarDays /><span><small>Даты</small><strong>12–19 октября</strong></span></div>
-                <div><Compass /><span><small>Длительность</small><strong>8 дней</strong></span></div>
-                <div><WalletCards /><span><small>Бюджет</small><strong>180 000 ₽</strong></span></div>
-              </div>
-              <button className="open-trip" onClick={() => navigateTo('trips')}>Открыть поездку <ArrowRight size={18} /></button>
+            <div className="overview-photo" style={{ backgroundImage: `url(${amalfiCoast})` }} role="img" aria-label="Амальфитанское побережье Италии">
+              <div className="overview-photo-caption"><small>ИДЕЯ ДЛЯ ПОЕЗДКИ</small><strong>Амальфитанское побережье</strong><span>Италия · море, городки и дорога вдоль берега</span></div>
             </div>
-            <div className="hero-visual" aria-label="Иллюстрация итальянского путешествия">
-              <div className="sun-disc" />
-              <div className="cloud cloud-one" /><div className="cloud cloud-two" />
-              <div className="colosseum">
-                <div className="top-stone" />
-                <div className="arches">{Array.from({ length: 12 }).map((_, i) => <i key={i} />)}</div>
-                <div className="arches lower">{Array.from({ length: 10 }).map((_, i) => <i key={i} />)}</div>
-              </div>
-              <div className="cypress one" /><div className="cypress two" />
-              <div className="scooter">●<span>━</span>●</div>
-              <span className="hero-stamp">ROMA<br /><b>2026</b></span>
-            </div>
-          </section>
 
-          <section className="stats-grid">
-            <article><div className="stat-icon coral-bg"><Map size={20} /></div><div><small>Всего поездок</small><strong>12</strong><span>3 запланировано</span></div><ChevronRight /></article>
-            <article><div className="stat-icon blue-bg"><MapPin size={20} /></div><div><small>Сохранено мест</small><strong>47</strong><span>В 8 городах</span></div><ChevronRight /></article>
-            <article><div className="stat-icon yellow-bg"><Fuel size={20} /></div><div><small>Пройдено</small><strong>18 420 <em>км</em></strong><span>Почти полмира!</span></div><ChevronRight /></article>
-          </section>
-
-          <div className="dashboard-grid">
-            <section className="panel route-panel">
-              <div className="section-title">
-                <div><p className="eyebrow">План путешествия</p><h3>Маршрут по дням</h3></div>
-                <button onClick={() => notify('Открыт полный маршрут')}>Весь маршрут <ArrowRight size={17} /></button>
-              </div>
-              <div className="day-tabs">
-                {itinerary.map((day, index) => <button key={day.day} className={activeDay === index ? 'active' : ''} onClick={() => setActiveDay(index)}><strong>{day.day}</strong><span>{day.date}</span></button>)}
-              </div>
-              <div className="day-heading"><span className={`day-number ${itinerary[activeDay].color}`}>0{activeDay + 1}</span><div><h4>{itinerary[activeDay].label}</h4><p>{itinerary[activeDay].items.length} места · около 7 часов</p></div><button aria-label="Добавить место" onClick={() => notify('Форма добавления места подготовлена')}><Plus /></button></div>
-              <div className="timeline">
-                {itinerary[activeDay].items.map((place, index) => (
-                  <article key={place.title}>
-                    <time>{place.time}</time>
-                    <div className="timeline-marker"><i />{index < itinerary[activeDay].items.length - 1 && <span />}</div>
-                    <div className="place-icon"><place.icon size={19} /></div>
-                    <div className="place-copy"><h5>{place.title}</h5><p><MapPin size={13} />{place.address}</p></div>
-                    <button aria-label="Действия с местом"><Ellipsis /></button>
-                  </article>
-                ))}
-              </div>
+            <section className="overview-process">
+              <div><p className="eyebrow">ПРОСТО НАЧАТЬ</p><h2>От идеи до путешествия</h2></div>
+              <div className="overview-process-steps"><span><i>1</i><b>Создайте поездку</b><small>Город, даты и бюджет</small></span><span><i>2</i><b>Подберите варианты</b><small>Рейс и место проживания</small></span><span><i>3</i><b>Соберите маршрут</b><small>Места и планы по дням</small></span></div>
+              <button className="overview-process-cta" onClick={() => { setTripError(''); setModalOpen(true) }}>Начать планирование <ArrowRight /></button>
             </section>
-
-            <section className="panel budget-panel">
-              <div className="section-title">
-                <div><p className="eyebrow">Финансы поездки</p><h3>Бюджет</h3></div>
-                <button className="round-more" aria-label="Действия"><Ellipsis /></button>
-              </div>
-              <div className="budget-overview">
-                <div className="donut" style={{ '--value': `${percent * 3.6}deg` } as React.CSSProperties}><div><strong>{percent}%</strong><span>потрачено</span></div></div>
-                <div><small>Потрачено</small><strong>{spent.toLocaleString('ru-RU')} ₽</strong><small>из {budget.toLocaleString('ru-RU')} ₽</small></div>
-              </div>
-              <div className="remaining"><span><i />Осталось</span><strong>{(budget - spent).toLocaleString('ru-RU')} ₽</strong></div>
-              <div className="expense-list">
-                {expenses.map((expense) => (
-                  <div key={expense.label}>
-                    <span className="expense-icon" style={{ color: expense.color, background: `${expense.color}18` }}><expense.icon size={17} /></span>
-                    <span>{expense.label}</span>
-                    <strong>{expense.value.toLocaleString('ru-RU')} ₽</strong>
-                  </div>
-                ))}
-              </div>
-              <button className="add-expense" onClick={() => notify('Добавление расхода будет подключено к API')}><Plus size={18} />Добавить расход</button>
-            </section>
-          </div>
-
-          <section className="ideas-section">
-            <div className="section-title">
-              <div><p className="eyebrow">Вдохновение рядом</p><h3>Идеи для следующей поездки</h3></div>
-              <button onClick={() => notify('Показываем больше направлений')}>Смотреть все <ArrowRight size={17} /></button>
-            </div>
-            <div className="idea-cards">
-              <article className="idea-card japan"><span>Весна · 10 дней</span><div><small>Япония</small><h4>Токио и Киото</h4></div><button aria-label="Сохранить"><Plus /></button></article>
-              <article className="idea-card turkey"><span>Выходные · 3 дня</span><div><small>Турция</small><h4>Стамбул</h4></div><button aria-label="Сохранить"><Plus /></button></article>
-              <article className="idea-card portugal"><span>Лето · 7 дней</span><div><small>Португалия</small><h4>Лиссабон</h4></div><button aria-label="Сохранить"><Plus /></button></article>
-            </div>
-          </section>
-          </> : activeNav === 'profile' ? (
-            <ProfilePage user={user} />
+          </section> : activeNav === 'settings' ? (
+            <SettingsPage user={user} onUserUpdate={setUser} />
+          ) : activeNav === 'profile' ? (
+            <ProfilePage user={user} onLogout={logout} />
           ) : activeNav === 'trips' ? (
             location.pathname.match(/^\/trips\/[^/]+$/) && selectedTrip ? (
-              detailPlanning ? <TripWorkspace booking={booking} setBooking={setBooking} initialSection="trips" onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} /> : <TripDetailsIntro trip={selectedTrip} onBack={() => navigateTo('trips')} onContinue={() => setDetailPlanning(true)} />
+              detailPlanning ? <TripWorkspace booking={booking} setBooking={setBooking} initialSection="trips" onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} /> : <TripDetailsIntro trip={selectedTrip} booking={booking} onBack={() => navigateTo('trips')} onContinue={() => setDetailPlanning(true)} />
             ) : <TripsPage refreshKey={tripsRefreshKey} onCreate={() => { setTripError(''); setModalOpen(true) }} onOpen={openTrip} />
           ) : activeNav === 'flights' ? (
             <FlightsView booking={booking} setBooking={setBooking} onContinue={() => navigateTo('hotels')} notify={notify} />
@@ -383,7 +312,46 @@ function App() {
             <p className="eyebrow coral-text">Новое приключение</p>
             <h3>Куда отправимся?</h3>
             <label>Название поездки<input autoFocus required value={tripName} onChange={(e) => setTripName(e.target.value)} placeholder="Например, выходные в Казани" /></label>
-            <label>Город или страна назначения<input required value={booking.destination} onChange={(e) => setBooking({ ...booking, destination: e.target.value })} placeholder="Рим, Италия" /></label>
+            <div className="destination-field">
+              <label htmlFor="trip-destination">Город или страна назначения</label>
+              <div className="destination-autocomplete">
+                <input
+                  id="trip-destination"
+                  required
+                  value={booking.destination}
+                  onFocus={() => setDestinationSuggestionsOpen(true)}
+                  onBlur={() => window.setTimeout(() => setDestinationSuggestionsOpen(false), 120)}
+                  onChange={(event) => {
+                    setBooking({ ...booking, destination: event.target.value })
+                    setDestinationSuggestionsOpen(true)
+                  }}
+                  placeholder="Начните вводить город"
+                  autoComplete="off"
+                  role="combobox"
+                  aria-expanded={destinationSuggestionsOpen && booking.destination.trim().length > 0}
+                  aria-controls="destination-suggestions"
+                />
+                {destinationSuggestionsOpen && booking.destination.trim() && (
+                  <div className="destination-suggestions" id="destination-suggestions" role="listbox">
+                    {matchingDestinations.length > 0 ? matchingDestinations.map(({ city, country }) => (
+                      <button
+                        type="button"
+                        role="option"
+                        key={`${city}-${country}`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setBooking({ ...booking, destination: `${city}, ${country}` })
+                          setDestinationSuggestionsOpen(false)
+                        }}
+                      >
+                        <MapPin />
+                        <span><strong>{city}</strong><small>{country}</small></span>
+                      </button>
+                    )) : <p>Города не найдены</p>}
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="form-row"><label>Дата начала<input type="date" required value={booking.startDate} onChange={(e) => setBooking({ ...booking, startDate: e.target.value })} /></label><label>Дата окончания<input type="date" required value={booking.endDate} min={booking.startDate} onChange={(e) => setBooking({ ...booking, endDate: e.target.value })} /></label></div>
             <label>Планируемый бюджет<div className="input-suffix"><input type="number" min="0" required value={booking.budget} onChange={(e) => setBooking({ ...booking, budget: Number(e.target.value) })} /><span>₽</span></div></label>
             {tripError && <div className="form-message error" role="alert">{tripError}</div>}
