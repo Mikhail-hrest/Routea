@@ -40,14 +40,14 @@ def create_access_token(user_id: UUID
                         , session_id: UUID) -> str:
     now = datetime.now(timezone.utc)
     payload = {
-        "sub": str(user_id)
-        , "sid": str(session_id)
-        , "jti": str(uuid4())
-        , "type": "access"
-        , "iat": now
-        , "exp": now + timedelta(minutes=settings.access_token_ttl_min)
-        , "iss": settings.jwt_issuer
-        , "aud": settings.jwt_audience
+        "sub": str(user_id) # id пользователя
+        , "sid": str(session_id) # id сессии
+        , "jti": str(uuid4()) #jwt id уникальный идентификатор самого токена
+        , "type": "access" #тип токена - аксес
+        , "iat": now #время создание токена
+        , "exp": now + timedelta(minutes=settings.access_token_ttl_min) # время истечение срока жизни токена
+        , "iss": settings.jwt_issuer #кто выпустил токен
+        , "aud": settings.jwt_audience #для кого (приложиение или api)
     }
     return jwt.encode(payload
                       , settings.jwt_secret.get_secret_value()

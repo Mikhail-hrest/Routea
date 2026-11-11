@@ -9,3 +9,8 @@ class UserBlockedError(Exception):
 
 class InvalidRefreshTokenError(Exception):
     pass
+class TripNotFoundError(Exception):
+    pass
+
+class InvalidTripDatesError(Exception):
+    pass
