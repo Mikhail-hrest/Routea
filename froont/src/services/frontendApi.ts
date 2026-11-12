@@ -18,7 +18,18 @@ type BackendError = {
   detail?: string | {msg?:string}[]
 }
 
-
+type BackendTrip = {
+  id: string
+  user_id: string
+  title: string
+  destination: string
+  start_date: string
+  end_date: string
+  planned_budget: string
+  currency: string
+  created_at: string
+  updated_at: string
+}
 
 export type User = {
   id: string
@@ -26,8 +37,6 @@ export type User = {
   email: string
   createdAt: string
 }
-
-
 
 type StoredUser = User & { passwordHash: string }
 
@@ -39,8 +48,15 @@ export type TripRecord = {
   startDate: string
   endDate: string
   budget: number
+  currency: string
   status: 'planned' | 'active' | 'completed'
   createdAt: string
+}
+
+export type TripDayRecord = {
+  id: string
+  trip_id: string
+  day_date: string
 }
 
 export type CreateTripPayload = Pick<TripRecord, 'name' | 'destination' | 'startDate' | 'endDate' | 'budget'>
@@ -165,6 +181,23 @@ async function authFetch(
   response = await makeRequest(token)
   return response
 }
+
+
+function mapTrip(data: BackendTrip): TripRecord {
+  return {
+    id: data.id,
+    ownerId: data.user_id,
+    name: data.title,
+    destination: data.destination,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    budget: Number(data.planned_budget),
+    currency: data.currency,
+    status: 'planned',
+    createdAt: data.created_at,
+  }
+}
+
 
 export const frontendApi = {
   //todo: CHANGED
@@ -371,45 +404,116 @@ async login(payload: {email: string; password: string}): Promise<{ user: User; a
     }
   },
 
-  async listTrips(): Promise<TripRecord[]> {
-    await delay()
-    const user = requireUser()
-    return readList<TripRecord>(KEYS.trips)
-      .filter((trip) => trip.ownerId === user.id)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  },
+  
+async listTrips(): Promise<TripRecord[]> {
+  const response = await authFetch(`${API_URL}/trips`)
 
-  async createTrip(payload: CreateTripPayload): Promise<TripRecord> {
-    await delay()
-    const user = requireUser()
-    if (payload.name.trim().length < 2) throw new ApiError(422, 'Укажите название поездки.')
-    if (payload.destination.trim().length < 2) throw new ApiError(422, 'Укажите город или страну назначения.')
-    if (!payload.startDate || !payload.endDate) throw new ApiError(422, 'Укажите даты поездки.')
-    if (payload.endDate < payload.startDate) throw new ApiError(422, 'Дата окончания не может быть раньше даты начала.')
-    if (!Number.isFinite(payload.budget) || payload.budget <= 0) throw new ApiError(422, 'Бюджет должен быть больше нуля.')
-    const trip: TripRecord = {
-      id: crypto.randomUUID(),
-      ownerId: user.id,
-      name: payload.name.trim(),
-      destination: payload.destination.trim(),
-      startDate: payload.startDate,
-      endDate: payload.endDate,
-      budget: payload.budget,
-      status: 'planned',
-      createdAt: new Date().toISOString(),
-    }
-    const trips = readList<TripRecord>(KEYS.trips)
-    trips.push(trip)
-    writeList(KEYS.trips, trips)
-    return trip
-  },
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      'Не удалось загрузить поездки.'
+    )
+  }
 
-  async getTrip(id: string): Promise<TripRecord> {
-    await delay()
-    const user = requireUser()
-    const trip = readList<TripRecord>(KEYS.trips).find((item) => item.id === id)
-    if (!trip) throw new ApiError(404, 'Поездка не найдена.')
-    if (trip.ownerId !== user.id) throw new ApiError(403, 'У вас нет доступа к этой поездке.')
-    return trip
-  },
+  const data = await response.json() as BackendTrip[]
+
+  return data.map(mapTrip)
+},
+
+async createTrip(
+  payload: CreateTripPayload
+): Promise<TripRecord> {
+  const name = payload.name.trim()
+  const destination = payload.destination.trim()
+
+  if (name.length < 2) {
+    throw new ApiError(422, 'Укажите название поездки.')
+  }
+
+  if (destination.length < 2) {
+    throw new ApiError(422, 'Укажите город или страну назначения.')
+  }
+
+  if (!payload.startDate || !payload.endDate) {
+    throw new ApiError(422, 'Укажите даты поездки.')
+  }
+
+  if (payload.endDate < payload.startDate) {
+    throw new ApiError(
+      422,
+      'Дата окончания не может быть раньше даты начала.'
+    )
+  }
+
+  if (!Number.isFinite(payload.budget) || payload.budget <= 0) {
+    throw new ApiError(422, 'Бюджет должен быть больше нуля.')
+  }
+
+  const response = await authFetch(`${API_URL}/trips`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title: name,
+      destination,
+      start_date: payload.startDate,
+      end_date: payload.endDate,
+      planned_budget: payload.budget.toFixed(2),
+      currency: 'RUB',
+    }),
+  })
+
+  const data = await response.json() as BackendTrip | BackendError
+
+  if (!response.ok) {
+    const errorData = data as BackendError
+    const detail = errorData.detail
+
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((item) => item.msg).filter(Boolean).join(' ')
+          : 'Не удалось создать поездку.'
+
+    throw new ApiError(response.status, message)
+  }
+
+  return mapTrip(data as BackendTrip)
+},
+
+async getTrip(id: string): Promise<TripRecord> {
+  const response = await authFetch(
+    `${API_URL}/trips/${encodeURIComponent(id)}`
+  )
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      response.status === 404
+        ? 'Поездка не найдена.'
+        : 'Не удалось загрузить поездку.'
+    )
+  }
+
+  const data = await response.json() as BackendTrip
+
+  return mapTrip(data)
+},
+async listTripDays(tripId: string): Promise<TripDayRecord[]> {
+  const response = await authFetch(
+    `${API_URL}/trips/${encodeURIComponent(tripId)}/days`
+  )
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      'Не удалось загрузить дни поездки.'
+    )
+  }
+
+  return await response.json() as TripDayRecord[]
+},
+
 }

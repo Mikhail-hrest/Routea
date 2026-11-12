@@ -292,14 +292,14 @@ function App() {
             <ProfilePage user={user} onLogout={logout} />
           ) : activeNav === 'trips' ? (
             location.pathname.match(/^\/trips\/[^/]+$/) && selectedTrip ? (
-              detailPlanning ? <TripWorkspace booking={booking} setBooking={setBooking} initialSection="trips" onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} /> : <TripDetailsIntro trip={selectedTrip} booking={booking} onBack={() => navigateTo('trips')} onContinue={() => setDetailPlanning(true)} />
+              detailPlanning ? <TripWorkspace booking={booking} setBooking={setBooking} tripId={selectedTrip?.id} initialSection="trips" onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} /> : <TripDetailsIntro trip={selectedTrip} booking={booking} onBack={() => navigateTo('trips')} onContinue={() => setDetailPlanning(true)} />
             ) : <TripsPage refreshKey={tripsRefreshKey} onCreate={() => { setTripError(''); setModalOpen(true) }} onOpen={openTrip} />
           ) : activeNav === 'flights' ? (
             <FlightsView booking={booking} setBooking={setBooking} onContinue={() => navigateTo('hotels')} notify={notify} />
           ) : activeNav === 'hotels' ? (
             <HotelsView booking={booking} setBooking={setBooking} onBack={() => navigateTo('flights')} onContinue={() => { setDetailPlanning(true); selectedTrip ? navigate(`/trips/${selectedTrip.id}`) : navigateTo('trips') }} notify={notify} />
           ) : (
-            <TripWorkspace booking={booking} setBooking={setBooking} initialSection={activeNav} onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} />
+            <TripWorkspace booking={booking} setBooking={setBooking} tripId={selectedTrip?.id} initialSection={activeNav} onFindFlights={() => navigateTo('flights')} onFindHotels={() => navigateTo('hotels')} notify={notify} />
           )}
         </div>
       </main>
