@@ -53,6 +53,12 @@ export type TripRecord = {
   createdAt: string
 }
 
+export type TripDayRecord = {
+  id: string
+  trip_id: string
+  day_date: string
+}
+
 export type CreateTripPayload = Pick<TripRecord, 'name' | 'destination' | 'startDate' | 'endDate' | 'budget'>
 
 export class ApiError extends Error {
@@ -494,6 +500,20 @@ async getTrip(id: string): Promise<TripRecord> {
   const data = await response.json() as BackendTrip
 
   return mapTrip(data)
+},
+async listTripDays(tripId: string): Promise<TripDayRecord[]> {
+  const response = await authFetch(
+    `${API_URL}/trips/${encodeURIComponent(tripId)}/days`
+  )
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      'Не удалось загрузить дни поездки.'
+    )
+  }
+
+  return await response.json() as TripDayRecord[]
 },
 
 }

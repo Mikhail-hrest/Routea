@@ -14,3 +14,27 @@ class TripNotFoundError(Exception):
 
 class InvalidTripDatesError(Exception):
     pass
+
+
+class TripDayNotFoundError(Exception):
+    pass
+
+
+class InvalidTripDayDateError(Exception):
+    pass
+
+
+class DuplicateTripDayError(Exception):
+    pass
+
+
+class TripDaysOutsideRangeError(Exception):
+    pass
+
+
+class PlaceNotFoundError(Exception):
+    pass
+
+
+class PlaceOrderConflictError(Exception):
+    pass

@@ -25,6 +25,7 @@ import {
   WalletCards,
 } from 'lucide-react'
 import hotelSheet from './assets/rome-hotels.png'
+import { frontendApi, type TripDayRecord } from './services/frontendApi'
 
 export type Flight = {
   id: number
@@ -257,7 +258,7 @@ export function HotelsView({ booking, setBooking, onBack, onContinue, notify }: 
   )
 }
 
-export function TripWorkspace({ booking, setBooking, initialSection, onFindFlights, onFindHotels, notify }: SharedProps & { initialSection: string; onFindFlights: () => void; onFindHotels: () => void }) {
+export function TripWorkspace({ booking, setBooking, initialSection, onFindFlights, onFindHotels, notify, tripId }: SharedProps & { initialSection: string; onFindFlights: () => void; onFindHotels: () => void; tripId?: string }) {
   const [activeMarker, setActiveMarker] = useState<number | 'hotel'>(booking.hotel ? 'hotel' : 1)
   const [category, setCategory] = useState<'Все' | NearbyPlace['category']>('Все')
   const [workspaceTab, setWorkspaceTab] = useState(initialSection === 'budget' ? 'budget' : 'map')
@@ -267,6 +268,9 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>(nearby)
   const [placesLoading, setPlacesLoading] = useState(false)
   const [placesError, setPlacesError] = useState('')
+  const [tripDays, setTripDays] = useState<TripDayRecord[]>([])
+  const [daysLoading, setDaysLoading] = useState(false)
+  const [daysError, setDaysError] = useState('')
   const selectedPlace = typeof activeMarker === 'number' ? nearbyPlaces.find((place) => place.id === activeMarker) : null
   const flightCost = booking.flight?.price ?? 0
   const hotelCost = booking.hotel?.total ?? 0
@@ -352,6 +356,48 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
     return () => { window.clearTimeout(timer); controller.abort() }
   }, [searchCenter, hotelCoordinates, booking.hotel?.id])
 
+  useEffect(() => {
+    if (!tripId) {
+      setTripDays([])
+      setDaysLoading(false)
+      setDaysError('Сначала откройте сохранённую поездку.')
+      return
+    }
+
+    let cancelled = false
+
+    setDaysLoading(true)
+    setDaysError('')
+
+    frontendApi.listTripDays(tripId)
+      .then((days) => {
+        if (cancelled) return
+
+        setTripDays(
+          [...days].sort((a, b) =>
+            a.day_date.localeCompare(b.day_date)
+          )
+        )
+      })
+      .catch((error) => {
+        if (cancelled) return
+
+        setTripDays([])
+        setDaysError(
+          error instanceof Error
+            ? error.message
+            : 'Не удалось загрузить дни поездки.'
+        )
+      })
+      .finally(() => {
+        if (!cancelled) setDaysLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tripId])
+
   const addPlace = (place: NearbyPlace, day = 1) => {
     if (booking.places.some((item) => item.id === place.id)) {
       setBooking({ ...booking, places: booking.places.filter((item) => item.id !== place.id) })
@@ -362,7 +408,21 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
     notify(`${place.title} добавлено в день ${day}`)
   }
 
-  const groupedPlaces = useMemo(() => [1, 2, 3].map((day) => ({ day, items: booking.places.filter((place) => place.day === day) })), [booking.places])
+  const groupedPlaces = useMemo(
+    () => tripDays.map((tripDay, index) => {
+      const day = index + 1
+
+      return {
+        day,
+        dayId: tripDay.id,
+        dayDate: tripDay.day_date,
+        items: booking.places.filter(
+          (place) => place.day === day
+        ),
+      }
+    }),
+    [tripDays, booking.places]
+  )
 
   return (
     <>
@@ -411,10 +471,16 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
 
       {workspaceTab === 'route' && <section className="route-builder panel">
         <div className="results-heading"><div><p className="eyebrow">План поездки</p><h3>Распределите места по дням</h3></div><span>{booking.places.length} мест добавлено</span></div>
-        <div className="route-days">{groupedPlaces.map(({ day, items }) => {
+        {daysLoading && <p>Загружаем дни поездки…</p>}
+        {daysError && <p role="alert">{daysError}</p>}
+        <div className="route-days"> {groupedPlaces.map(({ day, dayDate, items }) => {
           const dayExpenses = items.reduce((sum, place) => sum + (place.plannedCost ?? 0), 0)
           return <article key={day}>
-            <header><span>0{day}</span><div><strong>День {day}</strong><small>{formatDate(new Date(new Date(`${booking.startDate}T12:00:00`).getTime() + (day - 1) * 86400000).toISOString().slice(0, 10))}</small></div><b>{items.length} мест · {dayExpenses.toLocaleString('ru-RU')} ₽</b></header>
+            <header>
+              <span>{String(day).padStart(2, '0')}</span>
+              <div><strong>День {day}</strong><small>{formatDate(dayDate)}</small></div>
+              <b>{items.length} мест · {dayExpenses.toLocaleString('ru-RU')} ₽</b>
+            </header>
             <div className="route-day-body">
               {day === 1 && booking.hotel && <div className="route-place hotel"><BedDouble /><div><strong>{booking.hotel.name}</strong><span>Ваш отель · точка старта</span></div></div>}
               {items.map((place) => <div className="route-place" key={place.id}>
@@ -429,7 +495,7 @@ export function TripWorkspace({ booking, setBooking, initialSection, onFindFligh
                     <label><span>Заметка</span><input type="text" value={place.expenseNote ?? ''} placeholder="Например: обед на двоих" aria-label={`Заметка к ${place.title}`} onChange={(event) => setBooking({ ...booking, places: booking.places.map((item) => item.id === place.id ? { ...item, expenseNote: event.target.value } : item) })} /></label>
                   </div>
                 </div>
-                <select aria-label="Перенести в другой день" value={place.day} onChange={(event) => setBooking({ ...booking, places: booking.places.map((item) => item.id === place.id ? { ...item, day: Number(event.target.value) } : item) })}><option value="1">День 1</option><option value="2">День 2</option><option value="3">День 3</option></select>
+                <select aria-label="Перенести в другой день" value={place.day} onChange={(event) => setBooking({ ...booking, places: booking.places.map((item) => item.id === place.id ? { ...item, day: Number(event.target.value) } : item) })}>{groupedPlaces.map(({ day }) => (<option key={day} value={day}>День {day}</option>))}</select>
               </div>)}
               {items.length === 0 && !(day === 1 && booking.hotel) && <button onClick={() => setWorkspaceTab('map')}><Plus />Добавить место</button>}
             </div>
